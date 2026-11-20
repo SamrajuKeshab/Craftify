@@ -1,0 +1,6 @@
+{
+  "name": "Craftify",
+  "description": "Multi-vendor handmade art and craft e-commerce marketplace for Indian artisans, built with React (.jsx) and Django REST Framework.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
