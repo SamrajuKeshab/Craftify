@@ -1,19 +1,34 @@
 import { Heart, Search, ShoppingBag, User } from 'lucide-react';
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import CraftifyLogo from '../common/CraftifyLogo';
 
-export default function StorefrontNavbar({ searchQuery = '', onSearchChange }) {
+export default function StorefrontNavbar({ searchQuery, onSearchChange }) {
   const { user, getDashboardUrl } = useAuth();
   const { itemCount, wishlistIds } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
+  const [localSearch, setLocalSearch] = useState('');
+
+  const isControlled = typeof onSearchChange === 'function';
+  const inputValue = isControlled ? searchQuery || '' : localSearch;
+
+  const handleInputChange = (value) => {
+    if (isControlled) {
+      onSearchChange(value);
+    } else {
+      setLocalSearch(value);
+    }
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
+    const trimmed = inputValue.trim();
     if (location.pathname !== '/') {
-      navigate('/');
+      navigate(trimmed ? `/?search=${encodeURIComponent(trimmed)}` : '/');
+      return;
     }
     const target = document.getElementById('featured-products');
     if (target) target.scrollIntoView({ behavior: 'smooth' });
@@ -43,12 +58,12 @@ export default function StorefrontNavbar({ searchQuery = '', onSearchChange }) {
           >
             Categories
           </a>
-          <a
-            href="/#our-artists"
+          <Link
+            to="/shops"
             className="hover:text-[#8B4B28] transition-colors whitespace-nowrap shrink-0"
           >
             Our Artists
-          </a>
+          </Link>
           <Link
             to="/become-seller"
             className="hover:text-[#8B4B28] transition-colors whitespace-nowrap shrink-0"
@@ -64,8 +79,8 @@ export default function StorefrontNavbar({ searchQuery = '', onSearchChange }) {
           >
             <input
               type="search"
-              value={searchQuery}
-              onChange={(e) => onSearchChange?.(e.target.value)}
+              value={inputValue}
+              onChange={(e) => handleInputChange(e.target.value)}
               placeholder="Search for art & craft products..."
               aria-label="Search handmade products"
               className="w-full rounded-full bg-white border border-[#E2D8CB] pl-4 pr-9 py-1.5 text-sm text-[#2C2018] placeholder:text-[#8C7B6E] focus:outline-none focus:border-[#8B4B28] transition-colors"

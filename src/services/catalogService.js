@@ -49,6 +49,7 @@ export function normalizeStorefrontProduct(apiProduct) {
     categoryName: apiProduct.category_name || 'Handmade Craft',
     categoryCommissionRate: Number(apiProduct.category_commission_rate || 0),
     sellerId: apiProduct.seller_id,
+    sellerSlug: apiProduct.seller_slug || '',
     sellerName: apiProduct.seller_shop_name || 'Craftify Studio',
     sellerCity: cityState || 'India',
     price: effectivePrice,
@@ -79,19 +80,58 @@ export async function fetchPublicCategories() {
 
 export async function fetchPublicProducts({
   category = '',
+  seller = '',
   search = '',
   ordering = 'newest',
+  minPrice = '',
+  maxPrice = '',
+  inStock = false,
+  customizable = false,
+  madeToOrder = false,
+  oneOfAKind = false,
+  page = 1,
+  pageSize = 12,
 } = {}) {
   const params = {};
   if (category && category !== 'all') params.category = category;
+  if (seller && seller.trim()) params.seller = seller.trim();
   if (search && search.trim()) params.search = search.trim();
   if (ordering) params.ordering = ordering;
+  if (minPrice !== '' && minPrice !== null) params.min_price = String(minPrice).trim();
+  if (maxPrice !== '' && maxPrice !== null) params.max_price = String(maxPrice).trim();
+  if (inStock) params.in_stock = 'true';
+  if (customizable) params.customizable = 'true';
+  if (madeToOrder) params.made_to_order = 'true';
+  if (oneOfAKind) params.one_of_a_kind = 'true';
+  if (page && page > 1) params.page = page;
+  if (pageSize) params.page_size = pageSize;
+
   const { data } = await apiClient.get('/products/', { params });
   return data;
 }
 
 export async function fetchPublicProductBySlug(slug) {
   const { data } = await apiClient.get(`/products/${encodeURIComponent(slug)}/`);
+  return data;
+}
+
+export async function fetchPublicShops(search = '') {
+  const params = search && search.trim() ? { search: search.trim() } : {};
+  const { data } = await apiClient.get('/shops/', { params });
+  return data;
+}
+
+export async function fetchPublicShopBySlug(
+  slug,
+  { search = '', ordering = 'newest', inStock = false } = {}
+) {
+  const params = {};
+  if (search && search.trim()) params.search = search.trim();
+  if (ordering) params.ordering = ordering;
+  if (inStock) params.in_stock = 'true';
+  const { data } = await apiClient.get(`/shops/${encodeURIComponent(slug)}/`, {
+    params,
+  });
   return data;
 }
 

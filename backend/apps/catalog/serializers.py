@@ -5,6 +5,38 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from apps.catalog.models import Category, Product, ProductImage, ProductVariant
+from apps.sellers.models import SellerProfile
+
+
+class PublicShopSerializer(serializers.ModelSerializer):
+    """Public storefront studio profile — never exposes KYC, pickup address, or payout bank data."""
+
+    approved_product_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SellerProfile
+        fields = (
+            "id",
+            "shop_name",
+            "slug",
+            "primary_category",
+            "description",
+            "city",
+            "state",
+            "rating_avg",
+            "approved_product_count",
+            "created_at",
+        )
+        read_only_fields = fields
+
+    def get_approved_product_count(self, obj) -> int:
+        if hasattr(obj, "approved_count"):
+            return obj.approved_count
+        return obj.products.filter(
+            approval_status=Product.ApprovalStatus.APPROVED,
+            is_deleted=False,
+            category__is_active=True,
+        ).count()
 
 
 class CategorySerializer(serializers.ModelSerializer):

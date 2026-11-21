@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   Clock,
   Heart,
   Image as ImageIcon,
@@ -9,7 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { formatINR } from '../../utils/formatters';
 
@@ -140,7 +141,17 @@ export default function ProductDetailModal({ product, onClose }) {
             <div className="flex items-center gap-2 text-xs text-[#6E5E52]">
               <span>{product.categoryName}</span>
               <span aria-hidden="true">·</span>
-              <span>{product.sellerName}</span>
+              {product.sellerSlug ? (
+                <Link
+                  to={`/shops/${product.sellerSlug}`}
+                  onClick={onClose}
+                  className="font-semibold text-[#8B4B28] hover:underline"
+                >
+                  {product.sellerName}
+                </Link>
+              ) : (
+                <span>{product.sellerName}</span>
+              )}
             </div>
 
             <h2 className="font-serif text-2xl font-bold text-[#2C2018] leading-snug">
@@ -273,6 +284,19 @@ export default function ProductDetailModal({ product, onClose }) {
               />
             </button>
           </div>
+
+          {product.slug && (
+            <div className="mt-3 text-center">
+              <Link
+                to={`/products/${product.slug}`}
+                onClick={onClose}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#8B4B28] hover:underline underline-offset-4"
+              >
+                <span>Open Full Product Page</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

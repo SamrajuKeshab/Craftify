@@ -2,8 +2,11 @@
 import logging
 import os
 
+from pathlib import Path
+
 import cloudinary
 import cloudinary.uploader
+from dotenv import load_dotenv
 from PIL import Image, UnidentifiedImageError
 from rest_framework.exceptions import ValidationError
 
@@ -13,29 +16,68 @@ ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
+BACKEND_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+ROOT_ENV_PATH = BACKEND_ENV_PATH.parent.parent / ".env"
+
+
+def _is_placeholder(value: str) -> bool:
+    cleaned = value.strip().strip('"').strip("'").lower()
+    if not cleaned:
+        return True
+    return (
+        cleaned.startswith("your_")
+        or cleaned.startswith("<")
+        or "your_cloud_name" in cleaned
+        or "your_api_key" in cleaned
+        or "your_api_secret" in cleaned
+    )
+
+
+def _read_cloudinary_env() -> tuple[str, str, str, str]:
+    cloudinary_url = (os.getenv("CLOUDINARY_URL") or "").strip().strip('"').strip("'")
+    cloud_name = (os.getenv("CLOUDINARY_CLOUD_NAME") or "").strip().strip('"').strip("'")
+    api_key = (os.getenv("CLOUDINARY_API_KEY") or "").strip().strip('"').strip("'")
+    api_secret = (os.getenv("CLOUDINARY_API_SECRET") or "").strip().strip('"').strip("'")
+    return cloudinary_url, cloud_name, api_key, api_secret
+
+
+def _missing_cloudinary_fields() -> list[str]:
+    cloudinary_url, cloud_name, api_key, api_secret = _read_cloudinary_env()
+    if cloudinary_url and not _is_placeholder(cloudinary_url):
+        return []
+    missing = []
+    if _is_placeholder(cloud_name):
+        missing.append("CLOUDINARY_CLOUD_NAME")
+    if _is_placeholder(api_key):
+        missing.append("CLOUDINARY_API_KEY")
+    if _is_placeholder(api_secret):
+        missing.append("CLOUDINARY_API_SECRET")
+    return missing
+
 
 def configure_cloudinary() -> bool:
     """
     Configure Cloudinary strictly from server-side environment variables.
     Supports either CLOUDINARY_URL or the three individual CLOUDINARY_* keys.
-    Returns True if credentials are configured, False otherwise.
+    Re-reads backend/.env if credentials are currently missing so edits to .env
+    work immediately during local development.
     """
-    cloudinary_url = (os.getenv("CLOUDINARY_URL") or "").strip()
-    if cloudinary_url and "your_" not in cloudinary_url:
+    if _missing_cloudinary_fields():
+        if BACKEND_ENV_PATH.is_file():
+            load_dotenv(BACKEND_ENV_PATH, override=True)
+        elif ROOT_ENV_PATH.is_file():
+            load_dotenv(ROOT_ENV_PATH, override=True)
+
+    cloudinary_url, cloud_name, api_key, api_secret = _read_cloudinary_env()
+
+    if cloudinary_url and not _is_placeholder(cloudinary_url):
         cloudinary.config(cloudinary_url=cloudinary_url, secure=True)
         return True
 
-    cloud_name = (os.getenv("CLOUDINARY_CLOUD_NAME") or "").strip()
-    api_key = (os.getenv("CLOUDINARY_API_KEY") or "").strip()
-    api_secret = (os.getenv("CLOUDINARY_API_SECRET") or "").strip()
-
     if (
-        cloud_name
-        and api_key
-        and api_secret
-        and not cloud_name.startswith("your_")
-        and not api_key.startswith("your_")
-        and not api_secret.startswith("your_")
+        not _is_placeholder(cloud_name)
+        and not _is_placeholder(api_key)
+        and not _is_placeholder(api_secret)
     ):
         cloudinary.config(
             cloud_name=cloud_name,
@@ -82,10 +124,11 @@ def upload_image_to_cloudinary(uploaded_file, *, folder: str = "craftify/product
     validate_image_file(uploaded_file)
 
     if not configure_cloudinary():
+        missing = _missing_cloudinary_fields()
+        missing_text = ", ".join(missing) if missing else "CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET"
         raise ValidationError(
-            "Cloudinary credentials are not configured in backend/.env. "
-            "Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET "
-            "(or CLOUDINARY_URL) and restart Django."
+            f"Cloudinary setup incomplete in backend/.env — missing or placeholder value(s): {missing_text}. "
+            "Open Cloudinary Dashboard → Settings → API Keys, paste all 3 values into backend/.env, and try again."
         )
 
     try:

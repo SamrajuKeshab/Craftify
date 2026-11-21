@@ -9,6 +9,8 @@ from apps.catalog.views import (
     PublicCategoryListView,
     PublicProductDetailView,
     PublicProductListView,
+    PublicShopDetailView,
+    PublicShopListView,
     SellerProductDetailView,
     SellerProductImageDetailView,
     SellerProductImageUploadView,
@@ -19,6 +21,8 @@ public_catalog_urlpatterns = [
     path("categories/", PublicCategoryListView.as_view(), name="public-categories"),
     path("products/", PublicProductListView.as_view(), name="public-products"),
     path("products/<slug:slug>/", PublicProductDetailView.as_view(), name="public-product-detail"),
+    path("shops/", PublicShopListView.as_view(), name="public-shops"),
+    path("shops/<slug:slug>/", PublicShopDetailView.as_view(), name="public-shop-detail"),
 ]
 
 seller_product_urlpatterns = [

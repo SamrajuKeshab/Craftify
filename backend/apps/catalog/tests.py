@@ -300,3 +300,101 @@ class CraftifyCatalogAndModerationTests(APITestCase):
         del_prod = self.client.delete(f"/api/v1/seller/products/{product_id}/")
         self.assertEqual(del_prod.status_code, status.HTTP_200_OK)
         self.assertTrue(Product.objects.get(pk=product_id).is_deleted)
+
+    def test_storefront_advanced_filters_pagination_and_related_pdp(self):
+        cat = Category.objects.create(
+            name="Handloom Textiles", slug="handloom-textiles", commission_rate="12.00"
+        )
+        from apps.catalog.models import Inventory, ProductVariant
+
+        p1 = Product.objects.create(
+            seller=self.seller_profile_1,
+            category=cat,
+            title="Block Print Cotton Runner",
+            slug="block-print-cotton-runner",
+            description="Hand block-printed organic cotton table runner from Jaipur.",
+            base_price="1200.00",
+            discount_price="899.00",
+            is_customizable=True,
+            approval_status=Product.ApprovalStatus.APPROVED,
+        )
+        v1 = ProductVariant.objects.create(product=p1, sku="RUN-01", label="6 Seater")
+        Inventory.objects.create(variant=v1, quantity_available=5)
+
+        p2 = Product.objects.create(
+            seller=self.seller_profile_1,
+            category=cat,
+            title="Kutch Mirror Work Throw",
+            slug="kutch-mirror-work-throw",
+            description="Heirloom hand-embroidered wool throw crafted in small batches.",
+            base_price="3500.00",
+            is_one_of_a_kind=True,
+            approval_status=Product.ApprovalStatus.APPROVED,
+        )
+        v2 = ProductVariant.objects.create(product=p2, sku="THR-01", label="Standard")
+        Inventory.objects.create(variant=v2, quantity_available=0)
+
+        # Effective price filter (discount_price 899 falls within 500..1000)
+        res_price = self.client.get("/api/v1/products/?min_price=500&max_price=1000")
+        self.assertEqual(res_price.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_price.data["count"], 1)
+        self.assertEqual(res_price.data["results"][0]["slug"], "block-print-cotton-runner")
+
+        # In-stock + customizable filter excludes zero-stock item
+        res_stock = self.client.get("/api/v1/products/?in_stock=true&customizable=true")
+        self.assertEqual(res_stock.data["count"], 1)
+        self.assertEqual(res_stock.data["results"][0]["slug"], "block-print-cotton-runner")
+
+        # Pagination metadata
+        res_page = self.client.get("/api/v1/products/?page=1&page_size=1&ordering=price-desc")
+        self.assertEqual(res_page.data["count"], 2)
+        self.assertEqual(res_page.data["total_pages"], 2)
+        self.assertEqual(res_page.data["results"][0]["slug"], "kutch-mirror-work-throw")
+
+        # Dedicated PDP returns related_products from same category/studio
+        pdp = self.client.get("/api/v1/products/block-print-cotton-runner/")
+        self.assertEqual(pdp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(pdp.data["related_products"]), 1)
+        self.assertEqual(pdp.data["related_products"][0]["slug"], "kutch-mirror-work-throw")
+
+    def test_public_shops_directory_and_studio_page_privacy(self):
+        cat = Category.objects.create(name="Pottery", slug="pottery", commission_rate="10.00")
+        self.seller_profile_1.bank_account_masked = "XXXX1234"
+        self.seller_profile_1.ifsc_code = "SBIN0001234"
+        self.seller_profile_1.pickup_address_json = {"line1": "Secret Lane 1"}
+        self.seller_profile_1.save()
+
+        Product.objects.create(
+            seller=self.seller_profile_1,
+            category=cat,
+            title="Terracotta Kulhad Set",
+            slug="terracotta-kulhad-set",
+            description="Hand-thrown clay chai kulhads fired in a traditional kiln.",
+            base_price="650.00",
+            approval_status=Product.ApprovalStatus.APPROVED,
+        )
+
+        # Suspend studio 2 -> must NOT appear publicly
+        self.seller_profile_2.is_suspended = True
+        self.seller_profile_2.save()
+
+        shops_res = self.client.get("/api/v1/shops/")
+        self.assertEqual(shops_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(shops_res.data["count"], 1)
+        shop_item = shops_res.data["results"][0]
+        self.assertEqual(shop_item["slug"], "jaipur-clay-works")
+        self.assertEqual(shop_item["approved_product_count"], 1)
+        # Sensitive seller fields must NEVER leak on public endpoints
+        self.assertNotIn("bank_account_masked", shop_item)
+        self.assertNotIn("ifsc_code", shop_item)
+        self.assertNotIn("pickup_address_json", shop_item)
+
+        # Studio detail page returns live products for active studio
+        detail = self.client.get("/api/v1/shops/jaipur-clay-works/")
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail.data["product_count"], 1)
+
+        # Suspended studio returns 404
+        suspended_detail = self.client.get("/api/v1/shops/kutch-weave-house/")
+        self.assertEqual(suspended_detail.status_code, status.HTTP_404_NOT_FOUND)
+

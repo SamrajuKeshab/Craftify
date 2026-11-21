@@ -1,7 +1,10 @@
-"""API views for Public Storefront Catalog, Seller Product Management, and Admin Moderation."""
+"""API views for Public Storefront Catalog, Seller Studio Pages, Seller Products & Admin Moderation."""
+import math
 import uuid
+from decimal import Decimal, InvalidOperation
 
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Prefetch, Q, Sum
+from django.db.models.functions import Coalesce
 from django.http import Http404
 from rest_framework import permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -15,6 +18,7 @@ from apps.catalog.serializers import (
     CategorySerializer,
     ProductDetailSerializer,
     ProductImageSerializer,
+    PublicShopSerializer,
     SellerProductWriteSerializer,
 )
 from apps.catalog.services import (
@@ -29,7 +33,23 @@ from apps.catalog.services import (
     update_category,
     update_seller_product,
 )
+from apps.sellers.models import SellerProfile
 from common.permissions import IsAdminRole, IsApprovedSellerRole
+
+
+def _parse_bool_param(raw_value: str | None) -> bool:
+    return (raw_value or "").strip().lower() in {"1", "true", "yes"}
+
+
+def _parse_decimal_param(raw_value: str | None) -> Decimal | None:
+    text = (raw_value or "").strip()
+    if not text:
+        return None
+    try:
+        val = Decimal(text)
+    except InvalidOperation:
+        return None
+    return val if val >= Decimal("0") else None
 
 
 def _product_base_queryset():
@@ -43,8 +63,76 @@ def _product_base_queryset():
     )
 
 
+def _apply_public_product_filters(qs, query_params):
+    """Apply validated storefront discovery filters and sorting onto an approved Product queryset."""
+    qs = qs.annotate(
+        computed_price=Coalesce("discount_price", "base_price"),
+        computed_stock=Coalesce(
+            Sum(
+                "variants__inventory__quantity_available",
+                filter=Q(variants__is_active=True),
+            ),
+            0,
+        ),
+    )
+
+    category_param = (query_params.get("category") or "").strip()
+    if category_param and category_param.lower() != "all":
+        try:
+            parsed_uuid = uuid.UUID(category_param)
+            qs = qs.filter(category__id=parsed_uuid)
+        except ValueError:
+            qs = qs.filter(category__slug=category_param)
+
+    seller_slug = (query_params.get("seller") or "").strip()
+    if seller_slug:
+        qs = qs.filter(seller__slug=seller_slug)
+
+    search = (query_params.get("search") or "").strip()
+    if search:
+        qs = qs.filter(
+            Q(title__icontains=search)
+            | Q(description__icontains=search)
+            | Q(category__name__icontains=search)
+            | Q(seller__shop_name__icontains=search)
+            | Q(seller__city__icontains=search)
+        )
+
+    min_price = _parse_decimal_param(query_params.get("min_price"))
+    if min_price is not None:
+        qs = qs.filter(computed_price__gte=min_price)
+
+    max_price = _parse_decimal_param(query_params.get("max_price"))
+    if max_price is not None:
+        qs = qs.filter(computed_price__lte=max_price)
+
+    if _parse_bool_param(query_params.get("in_stock")):
+        qs = qs.filter(computed_stock__gt=0)
+
+    if _parse_bool_param(query_params.get("customizable")):
+        qs = qs.filter(is_customizable=True)
+
+    if _parse_bool_param(query_params.get("made_to_order")):
+        qs = qs.filter(is_made_to_order=True)
+
+    if _parse_bool_param(query_params.get("one_of_a_kind")):
+        qs = qs.filter(is_one_of_a_kind=True)
+
+    ordering = (query_params.get("ordering") or "newest").strip()
+    if ordering == "price-asc":
+        qs = qs.order_by("computed_price", "-created_at")
+    elif ordering == "price-desc":
+        qs = qs.order_by("-computed_price", "-created_at")
+    elif ordering == "title-asc":
+        qs = qs.order_by("title", "-created_at")
+    else:
+        qs = qs.order_by("-created_at")
+
+    return qs
+
+
 # ---------------------------------------------------------------------------
-# Public Storefront Catalog APIs (GET /api/v1/categories/, /api/v1/products/)
+# Public Storefront Catalog & Artisan Studios APIs
 # ---------------------------------------------------------------------------
 
 
@@ -80,53 +168,47 @@ class PublicCategoryListView(APIView):
 
 
 class PublicProductListView(APIView):
-    """GET /api/v1/products/ — Live Admin-approved products for the Storefront Home Page."""
+    """GET /api/v1/products/ — Live Admin-approved products with filtering, sorting & pagination."""
 
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        qs = _product_base_queryset().filter(
+        base_qs = _product_base_queryset().filter(
             approval_status=Product.ApprovalStatus.APPROVED,
             seller__is_suspended=False,
             category__is_active=True,
         )
+        qs = _apply_public_product_filters(base_qs, request.query_params)
 
-        category_param = (request.query_params.get("category") or "").strip()
-        if category_param and category_param.lower() != "all":
-            try:
-                parsed_uuid = uuid.UUID(category_param)
-                qs = qs.filter(category__id=parsed_uuid)
-            except ValueError:
-                qs = qs.filter(category__slug=category_param)
+        try:
+            page = max(1, int(request.query_params.get("page", 1)))
+        except (TypeError, ValueError):
+            page = 1
+        try:
+            page_size = min(48, max(1, int(request.query_params.get("page_size", 12))))
+        except (TypeError, ValueError):
+            page_size = 12
 
-        search = (request.query_params.get("search") or "").strip()
-        if search:
-            qs = qs.filter(
-                Q(title__icontains=search)
-                | Q(description__icontains=search)
-                | Q(category__name__icontains=search)
-                | Q(seller__shop_name__icontains=search)
-            )
-
-        ordering = (request.query_params.get("ordering") or "newest").strip()
-        if ordering == "price-asc":
-            qs = qs.order_by("base_price", "-created_at")
-        elif ordering == "price-desc":
-            qs = qs.order_by("-base_price", "-created_at")
-        else:
-            qs = qs.order_by("-created_at")
+        total_count = qs.count()
+        total_pages = max(1, math.ceil(total_count / page_size))
+        page = min(page, total_pages)
+        start = (page - 1) * page_size
+        end = start + page_size
 
         return Response(
             {
-                "count": qs.count(),
-                "results": ProductDetailSerializer(qs[:100], many=True).data,
+                "count": total_count,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": total_pages,
+                "results": ProductDetailSerializer(qs[start:end], many=True).data,
             },
             status=status.HTTP_200_OK,
         )
 
 
 class PublicProductDetailView(APIView):
-    """GET /api/v1/products/<slug>/ — Live detail view for an approved product."""
+    """GET /api/v1/products/<slug>/ — Live detail view + related crafts for an approved product."""
 
     permission_classes = [permissions.AllowAny]
 
@@ -143,7 +225,110 @@ class PublicProductDetailView(APIView):
         )
         if product is None:
             raise Http404("Product not found.")
-        return Response(ProductDetailSerializer(product).data, status=status.HTTP_200_OK)
+
+        related_qs = (
+            _product_base_queryset()
+            .filter(
+                approval_status=Product.ApprovalStatus.APPROVED,
+                seller__is_suspended=False,
+                category__is_active=True,
+            )
+            .exclude(pk=product.pk)
+            .filter(Q(category_id=product.category_id) | Q(seller_id=product.seller_id))
+            .order_by("-created_at")[:4]
+        )
+
+        payload = ProductDetailSerializer(product).data
+        payload["related_products"] = ProductDetailSerializer(related_qs, many=True).data
+        return Response(payload, status=status.HTTP_200_OK)
+
+
+class PublicShopListView(APIView):
+    """GET /api/v1/shops/ — Public directory of active, verified Craftify artisan studios."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        qs = (
+            SellerProfile.objects.filter(is_suspended=False, user__is_active=True)
+            .annotate(
+                approved_count=Count(
+                    "products",
+                    filter=Q(
+                        products__approval_status=Product.ApprovalStatus.APPROVED,
+                        products__is_deleted=False,
+                        products__category__is_active=True,
+                    ),
+                    distinct=True,
+                )
+            )
+            .order_by("-approved_count", "shop_name")
+        )
+
+        search = (request.query_params.get("search") or "").strip()
+        if search:
+            qs = qs.filter(
+                Q(shop_name__icontains=search)
+                | Q(primary_category__icontains=search)
+                | Q(city__icontains=search)
+                | Q(state__icontains=search)
+                | Q(description__icontains=search)
+            )
+
+        return Response(
+            {
+                "count": qs.count(),
+                "results": PublicShopSerializer(qs[:60], many=True).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PublicShopDetailView(APIView):
+    """GET /api/v1/shops/<slug>/ — Public studio storefront profile + its live approved crafts."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, slug):
+        shop = (
+            SellerProfile.objects.filter(
+                slug=slug,
+                is_suspended=False,
+                user__is_active=True,
+            )
+            .annotate(
+                approved_count=Count(
+                    "products",
+                    filter=Q(
+                        products__approval_status=Product.ApprovalStatus.APPROVED,
+                        products__is_deleted=False,
+                        products__category__is_active=True,
+                    ),
+                    distinct=True,
+                )
+            )
+            .first()
+        )
+        if shop is None:
+            raise Http404("Artisan studio not found.")
+
+        products_qs = _apply_public_product_filters(
+            _product_base_queryset().filter(
+                seller=shop,
+                approval_status=Product.ApprovalStatus.APPROVED,
+                category__is_active=True,
+            ),
+            request.query_params,
+        )
+
+        return Response(
+            {
+                "shop": PublicShopSerializer(shop).data,
+                "product_count": products_qs.count(),
+                "products": ProductDetailSerializer(products_qs[:48], many=True).data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 # ---------------------------------------------------------------------------

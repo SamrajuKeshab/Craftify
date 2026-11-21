@@ -9,6 +9,9 @@ export function extractServiceError(err, fallback = 'Request failed. Please try 
   }
   const data = err.response.data;
   if (!data || typeof data === 'string') return fallback;
+  if (Array.isArray(data) && typeof data[0] === 'string') {
+    return data[0];
+  }
   if (typeof data.detail === 'string') return data.detail;
   if (Array.isArray(data.non_field_errors) && data.non_field_errors[0]) {
     return data.non_field_errors[0];
