@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import StorefrontNavbar from '../components/storefront/StorefrontNavbar';
 import { useAuth } from '../context/AuthContext';
-import { POPULAR_CATEGORIES } from '../data/craftifyData';
+import { fetchPublicCategories } from '../services/catalogService';
 import {
   downloadVerificationDocument,
   extractServiceError,
@@ -42,9 +42,11 @@ export default function BecomeSellerPage() {
   const [resending, setResending] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
 
+  const [categories, setCategories] = useState([]);
+
   const [form, setForm] = useState({
     shopName: '',
-    primaryCategory: POPULAR_CATEGORIES[0].name,
+    primaryCategory: '',
     pickupAddress: '',
     city: '',
     state: '',
@@ -84,6 +86,27 @@ export default function BecomeSellerPage() {
       setLoadingStatus(false);
     }
   };
+
+  useEffect(() => {
+    let active = true;
+    fetchPublicCategories()
+      .then((data) => {
+        if (!active) return;
+        const list = data.results || [];
+        setCategories(list);
+        if (list.length > 0) {
+          setForm((prev) =>
+            prev.primaryCategory ? prev : { ...prev, primaryCategory: list[0].name }
+          );
+        }
+      })
+      .catch(() => {
+        if (active) setCategories([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -502,19 +525,33 @@ export default function BecomeSellerPage() {
                   <label className="block text-xs font-semibold text-[#4A3B31] mb-1.5">
                     Primary Craft Category *
                   </label>
-                  <select
-                    value={form.primaryCategory}
-                    onChange={(e) =>
-                      setForm({ ...form, primaryCategory: e.target.value })
-                    }
-                    className="w-full rounded-lg border border-[#E2D8CB] bg-[#FAF6F0]/50 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#8B4B28]"
-                  >
-                    {POPULAR_CATEGORIES.map((cat) => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.name} ({cat.commissionRate}% platform commission)
-                      </option>
-                    ))}
-                  </select>
+                  {categories.length > 0 ? (
+                    <select
+                      required
+                      value={form.primaryCategory}
+                      onChange={(e) =>
+                        setForm({ ...form, primaryCategory: e.target.value })
+                      }
+                      className="w-full rounded-lg border border-[#E2D8CB] bg-[#FAF6F0]/50 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#8B4B28]"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name} ({Number(cat.commission_rate).toFixed(2)}% platform commission)
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      required
+                      minLength={2}
+                      value={form.primaryCategory}
+                      onChange={(e) =>
+                        setForm({ ...form, primaryCategory: e.target.value })
+                      }
+                      placeholder="e.g., Pottery & Ceramics"
+                      className="w-full rounded-lg border border-[#E2D8CB] bg-[#FAF6F0]/50 px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#8B4B28]"
+                    />
+                  )}
                 </div>
               </div>
 

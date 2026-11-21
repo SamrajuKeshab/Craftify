@@ -174,12 +174,23 @@ class AdminDashboardSummaryView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request):
+        from apps.catalog.models import Category, Product
+
         total_buyers = User.objects.filter(role=User.Role.BUYER).count()
         total_sellers = SellerProfile.objects.count()
         active_sellers = SellerProfile.objects.filter(is_suspended=False).count()
         pending_seller_apps = SellerApplication.objects.filter(
             status=SellerApplication.Status.PENDING
         ).count()
+        pending_products = Product.objects.filter(
+            approval_status=Product.ApprovalStatus.PENDING,
+            is_deleted=False,
+        ).count()
+        approved_products = Product.objects.filter(
+            approval_status=Product.ApprovalStatus.APPROVED,
+            is_deleted=False,
+        ).count()
+        total_categories = Category.objects.count()
         recent_logs = AuditLog.objects.select_related("actor")[:8]
 
         return Response(
@@ -190,10 +201,12 @@ class AdminDashboardSummaryView(APIView):
                     "total_buyers": total_buyers,
                     "total_sellers": total_sellers,
                     "active_sellers": active_sellers,
+                    "approved_products": approved_products,
+                    "total_categories": total_categories,
                 },
                 "pending_approvals": {
                     "seller_applications": pending_seller_apps,
-                    "product_approvals": 0,
+                    "product_approvals": pending_products,
                 },
                 "recent_audit_logs": AdminAuditLogSerializer(recent_logs, many=True).data,
             },

@@ -27,13 +27,17 @@ import AccountSecurityPanel from '../components/dashboards/AccountSecurityPanel'
 import DashboardShell from '../components/dashboards/DashboardShell';
 import EmailVerificationBanner from '../components/dashboards/EmailVerificationBanner';
 import { useAuth } from '../context/AuthContext';
-import { POPULAR_CATEGORIES } from '../data/craftifyData';
+import {
+  fetchPublicCategories,
+  fetchSellerProducts,
+} from '../services/catalogService';
 import {
   extractServiceError,
   fetchMySellerShop,
   updateMySellerShop,
 } from '../services/sellerService';
 import { formatINR, formatINRCompact } from '../utils/formatters';
+import SellerProductsTab from './SellerProductsTab';
 
 const EMPTY_SALES_6M = [
   { month: 'Jan', sales: 0 },
@@ -69,36 +73,86 @@ export default function SellerDashboard() {
   const [savingShop, setSavingShop] = useState(false);
   const [shopMessage, setShopMessage] = useState(null);
 
+  // Week 5 live Seller Products & Categories
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [approvedProductCount, setApprovedProductCount] = useState(0);
+  const [productStatusFilter, setProductStatusFilter] = useState('ALL');
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [openComposerOnProductsTab, setOpenComposerOnProductsTab] = useState(false);
+
+  const loadSellerProducts = async (statusFilter = productStatusFilter) => {
+    setProductsLoading(true);
+    try {
+      const data = await fetchSellerProducts(statusFilter);
+      const list = data.results || [];
+      setProducts(list);
+      if (typeof data.approved_count === 'number') {
+        setApprovedProductCount(data.approved_count);
+      }
+      return list;
+    } catch {
+      return [];
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
   useEffect(() => {
     let active = true;
-    async function loadShop() {
+    async function loadInitialStudioData() {
       setShopLoading(true);
       try {
-        const data = await fetchMySellerShop();
+        const [shopData, catData, prodData] = await Promise.allSettled([
+          fetchMySellerShop(),
+          fetchPublicCategories(),
+          fetchSellerProducts('ALL'),
+        ]);
         if (!active) return;
-        setShop(data);
-        setShopForm({
-          shop_name: data.shop_name || '',
-          primary_category: data.primary_category || POPULAR_CATEGORIES[0].name,
-          description: data.description || '',
-          city: data.city || '',
-          state: data.state || '',
-          pickup_line1: data.pickup_address_json?.line1 || '',
-          pickup_pincode: data.pickup_address_json?.pincode || '',
-          ifsc_code: data.ifsc_code || '',
-          bank_account_number: '',
-        });
-      } catch {
-        if (active) setShop(null);
+
+        const liveCategories =
+          catData.status === 'fulfilled' ? catData.value?.results || [] : [];
+        setCategories(liveCategories);
+
+        if (prodData.status === 'fulfilled') {
+          setProducts(prodData.value?.results || []);
+          setApprovedProductCount(prodData.value?.approved_count ?? 0);
+        }
+
+        if (shopData.status === 'fulfilled' && shopData.value) {
+          const data = shopData.value;
+          setShop(data);
+          setShopForm({
+            shop_name: data.shop_name || '',
+            primary_category:
+              data.primary_category || liveCategories[0]?.name || '',
+            description: data.description || '',
+            city: data.city || '',
+            state: data.state || '',
+            pickup_line1: data.pickup_address_json?.line1 || '',
+            pickup_pincode: data.pickup_address_json?.pincode || '',
+            ifsc_code: data.ifsc_code || '',
+            bank_account_number: '',
+          });
+        } else {
+          setShop(null);
+        }
       } finally {
         if (active) setShopLoading(false);
       }
     }
-    loadShop();
+    loadInitialStudioData();
     return () => {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'products') {
+      loadSellerProducts(productStatusFilter);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, productStatusFilter]);
 
   const handleSaveShop = async (e) => {
     e.preventDefault();
@@ -213,10 +267,10 @@ export default function SellerDashboard() {
 
             <div className="rounded-xl bg-white border border-slate-200/80 p-5">
               <p className="font-mono text-2xl font-bold text-slate-900 tabular-nums">
-                0
+                {approvedProductCount}
               </p>
               <p className="mt-1 text-xs font-medium text-slate-500">
-                Active Products
+                Active Approved Products
               </p>
             </div>
           </div>
@@ -341,7 +395,10 @@ export default function SellerDashboard() {
               <div className="grid grid-cols-3 gap-3">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('products')}
+                  onClick={() => {
+                    setOpenComposerOnProductsTab(true);
+                    setActiveTab('products');
+                  }}
                   className="flex flex-col items-center justify-center gap-2 rounded-xl bg-[#F3F7FD] border border-blue-100 px-3 py-4 text-xs font-semibold text-slate-800 hover:border-[#4A7CE0] transition-colors"
                 >
                   <PlusSquare className="h-5 w-5 text-[#4A7CE0]" />
@@ -431,22 +488,42 @@ export default function SellerDashboard() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Primary Craft Category
                   </label>
-                  <select
-                    value={shopForm.primary_category}
-                    onChange={(e) =>
-                      setShopForm({
-                        ...shopForm,
-                        primary_category: e.target.value,
-                      })
-                    }
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#2E9A90]"
-                  >
-                    {POPULAR_CATEGORIES.map((cat) => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
+                  {categories.length > 0 ? (
+                    <select
+                      value={shopForm.primary_category}
+                      onChange={(e) =>
+                        setShopForm({
+                          ...shopForm,
+                          primary_category: e.target.value,
+                        })
+                      }
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#2E9A90]"
+                    >
+                      {!categories.some((c) => c.name === shopForm.primary_category) &&
+                        shopForm.primary_category && (
+                          <option value={shopForm.primary_category}>
+                            {shopForm.primary_category}
+                          </option>
+                        )}
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      value={shopForm.primary_category}
+                      onChange={(e) =>
+                        setShopForm({
+                          ...shopForm,
+                          primary_category: e.target.value,
+                        })
+                      }
+                      placeholder="e.g., Pottery & Ceramics"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#2E9A90]"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -579,17 +656,32 @@ export default function SellerDashboard() {
         </div>
       )}
 
+      {/* Live Week 5 Seller Products & Inventory Manager */}
+      {activeTab === 'products' && (
+        <SellerProductsTab
+          products={products}
+          categories={categories}
+          statusFilter={productStatusFilter}
+          onStatusFilterChange={setProductStatusFilter}
+          loading={productsLoading}
+          shopSuspended={Boolean(shop?.is_suspended)}
+          openComposerInitially={openComposerOnProductsTab}
+          onCloseInitialComposer={() => setOpenComposerOnProductsTab(false)}
+          onRefresh={() => loadSellerProducts(productStatusFilter)}
+        />
+      )}
+
       {activeTab === 'settings' && <AccountSecurityPanel />}
 
-      {['products', 'earnings', 'reviews'].includes(activeTab) && (
+      {['earnings', 'reviews'].includes(activeTab) && (
         <div className="rounded-xl bg-white border border-slate-200/80 p-6">
           <h2 className="text-lg font-bold text-slate-900 capitalize">
             Seller {activeTab}
           </h2>
           <p className="mt-1 text-sm text-slate-600">
             No mock records are shown here. Real PostgreSQL APIs for this section
-            are scheduled in your Craftify roadmap (Week 5: Products, Week 10:
-            Earnings, Week 11: Reviews).
+            are scheduled in your Craftify roadmap (Week 10: Earnings, Week 11:
+            Reviews).
           </p>
           <button
             type="button"

@@ -33,6 +33,10 @@ import AccountSecurityPanel from '../components/dashboards/AccountSecurityPanel'
 import DashboardShell from '../components/dashboards/DashboardShell';
 import { useAuth } from '../context/AuthContext';
 import {
+  fetchAdminCategories,
+  fetchAdminProducts,
+} from '../services/catalogService';
+import {
   downloadVerificationDocument,
   extractServiceError,
   fetchAdminAuditLogs,
@@ -45,6 +49,8 @@ import {
   toggleUserActive,
 } from '../services/sellerService';
 import { formatINR, formatINRCompact } from '../utils/formatters';
+import AdminCategoriesTab from './AdminCategoriesTab';
+import AdminProductsTab from './AdminProductsTab';
 
 const EMPTY_ADMIN_SERIES = [
   { month: 'Jan', thisMonth: 0 },
@@ -73,6 +79,9 @@ export default function AdminDashboard() {
   const [sellers, setSellers] = useState([]);
   const [buyers, setBuyers] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [productStatusFilter, setProductStatusFilter] = useState('PENDING');
 
   const [loading, setLoading] = useState(false);
   const [actionBusyId, setActionBusyId] = useState(null);
@@ -157,6 +166,42 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadCategories = async (search = searchTerm) => {
+    setLoading(true);
+    try {
+      const data = await fetchAdminCategories(search);
+      setCategories(data.results || []);
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: extractServiceError(err, 'Failed to load craft categories.'),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAdminProducts = async (
+    statusFilter = productStatusFilter,
+    search = searchTerm
+  ) => {
+    setLoading(true);
+    try {
+      const data = await fetchAdminProducts({
+        status: statusFilter === 'ALL' ? '' : statusFilter,
+        search,
+      });
+      setProducts(data.results || []);
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: extractServiceError(err, 'Failed to load seller products.'),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboardOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,11 +216,15 @@ export default function AdminDashboard() {
       }
     } else if (activeTab === 'buyers') {
       loadBuyersDirectory(searchTerm);
+    } else if (activeTab === 'categories') {
+      loadCategories(searchTerm);
+    } else if (activeTab === 'products') {
+      loadAdminProducts(productStatusFilter, searchTerm);
     } else if (activeTab === 'audit') {
       loadAuditLogs();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, sellersSubTab, appStatusFilter, searchTerm]);
+  }, [activeTab, sellersSubTab, appStatusFilter, productStatusFilter, searchTerm]);
 
   const handleReviewApplication = async (appId, action) => {
     const notes = (reviewNotesMap[appId] || '').trim();
@@ -250,6 +299,8 @@ export default function AdminDashboard() {
 
   const pendingSellerCount =
     dashboard?.pending_approvals?.seller_applications ?? 0;
+  const pendingProductCount =
+    dashboard?.pending_approvals?.product_approvals ?? 0;
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -260,7 +311,12 @@ export default function AdminDashboard() {
       badge: pendingSellerCount || undefined,
     },
     { id: 'buyers', label: 'Buyers', icon: Users },
-    { id: 'products', label: 'Products', icon: Package },
+    {
+      id: 'products',
+      label: 'Products',
+      icon: Package,
+      badge: pendingProductCount || undefined,
+    },
     { id: 'categories', label: 'Categories', icon: FolderTree },
     { id: 'orders', label: 'Orders', icon: ShoppingCart },
     { id: 'payments', label: 'Payments', icon: CreditCard },
@@ -320,6 +376,14 @@ export default function AdminDashboard() {
                 sellersSubTab === 'applications'
                   ? loadSellerApplications()
                   : loadSellersDirectory();
+              } else if (activeTab === 'categories') {
+                loadCategories();
+              } else if (activeTab === 'products') {
+                loadAdminProducts();
+              } else if (activeTab === 'buyers') {
+                loadBuyersDirectory();
+              } else if (activeTab === 'audit') {
+                loadAuditLogs();
               }
             }}
             title="Refresh live data"
@@ -463,29 +527,58 @@ export default function AdminDashboard() {
                     <span className="text-sm text-slate-600">
                       Product Approvals
                     </span>
-                    <span className="font-mono text-base font-bold text-slate-900 tabular-nums">
-                      {dashboard?.pending_approvals?.product_approvals ?? 0}
+                    <span
+                      className={`font-mono text-base font-bold tabular-nums ${
+                        pendingProductCount > 0 ? 'text-[#8B4B28]' : 'text-slate-900'
+                      }`}
+                    >
+                      {pendingProductCount}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSellersSubTab('applications');
-                  setAppStatusFilter('PENDING');
-                  setActiveTab('sellers');
-                }}
-                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#8B4B28] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#733C1E] transition-colors"
-              >
-                <span>
-                  {pendingSellerCount > 0
-                    ? `Review ${pendingSellerCount} Pending Application${pendingSellerCount > 1 ? 's' : ''}`
-                    : 'Open Moderation Queue'}
-                </span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
+              <div className="mt-6 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (pendingProductCount > 0 && pendingSellerCount === 0) {
+                      setProductStatusFilter('PENDING');
+                      setActiveTab('products');
+                    } else {
+                      setSellersSubTab('applications');
+                      setAppStatusFilter('PENDING');
+                      setActiveTab('sellers');
+                    }
+                  }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#8B4B28] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#733C1E] transition-colors"
+                >
+                  <span>
+                    {pendingSellerCount > 0
+                      ? `Review ${pendingSellerCount} Seller Application${pendingSellerCount > 1 ? 's' : ''}`
+                      : pendingProductCount > 0
+                      ? `Moderate ${pendingProductCount} Pending Product${pendingProductCount > 1 ? 's' : ''}`
+                      : 'Open Moderation Queue'}
+                  </span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+                {pendingProductCount > 0 && pendingSellerCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProductStatusFilter('PENDING');
+                      setActiveTab('products');
+                    }}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 hover:border-[#2E9A90] hover:text-[#2E9A90] transition-colors"
+                  >
+                    <span>
+                      Moderate {pendingProductCount} Pending Product
+                      {pendingProductCount > 1 ? 's' : ''}
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -965,19 +1058,45 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* TAB 5: LIVE CRAFT CATEGORIES & COMMISSION SCHEDULE (WEEK 5) */}
+      {activeTab === 'categories' && (
+        <AdminCategoriesTab
+          categories={categories}
+          loading={loading}
+          onRefresh={async () => {
+            await Promise.all([loadDashboardOverview(), loadCategories(searchTerm)]);
+          }}
+          onFeedback={setFeedback}
+        />
+      )}
+
+      {/* TAB 6: LIVE PRODUCT MODERATION QUEUE (WEEK 5) */}
+      {activeTab === 'products' && (
+        <AdminProductsTab
+          products={products}
+          statusFilter={productStatusFilter}
+          onStatusFilterChange={setProductStatusFilter}
+          loading={loading}
+          onRefresh={async () => {
+            await Promise.all([
+              loadDashboardOverview(),
+              loadAdminProducts(productStatusFilter, searchTerm),
+            ]);
+          }}
+          onFeedback={setFeedback}
+        />
+      )}
+
       {activeTab === 'settings' && <AccountSecurityPanel />}
 
-      {['products', 'categories', 'orders', 'payments', 'reports'].includes(
-        activeTab
-      ) && (
+      {['orders', 'payments', 'reports'].includes(activeTab) && (
         <div className="rounded-xl bg-white border border-slate-200/80 p-6">
           <h2 className="text-lg font-bold text-slate-900 capitalize">
             Admin {activeTab} Management
           </h2>
           <p className="mt-1 text-sm text-slate-600">
             No fake placeholder records are shown here. Live PostgreSQL APIs for{' '}
-            <strong>{activeTab}</strong> are scheduled next in our roadmap (Week 5:
-            Categories &amp; Products, Weeks 8–11: Orders, Payments &amp; Reports).
+            <strong>{activeTab}</strong> are scheduled in Weeks 8–11 of our roadmap.
           </p>
           <button
             type="button"

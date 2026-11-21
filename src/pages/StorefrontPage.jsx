@@ -1,56 +1,102 @@
 import {
   ArrowRight,
+  FolderTree,
   Heart,
+  Image as ImageIcon,
+  Package,
   RefreshCw,
   ShieldCheck,
   Star,
   Truck,
   Users,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ProductDetailModal from '../components/storefront/ProductDetailModal';
 import StorefrontNavbar from '../components/storefront/StorefrontNavbar';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { CRAFTIFY_IMAGES } from '../data/craftifyData';
 import {
-  CRAFTIFY_IMAGES,
-  FEATURED_PRODUCTS,
-  POPULAR_CATEGORIES,
-} from '../data/craftifyData';
+  fetchPublicCategories,
+  fetchPublicProducts,
+  normalizeStorefrontProduct,
+} from '../services/catalogService';
 import { formatINR } from '../utils/formatters';
 
 export default function StorefrontPage() {
   const { addToCart, toggleWishlist, wishlistIds } = useCart();
   const { user, getDashboardUrl } = useAuth();
 
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [catalogError, setCatalogError] = useState('');
+
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('featured');
+  const [sortBy, setSortBy] = useState('newest');
   const [activeProduct, setActiveProduct] = useState(null);
 
-  const filteredProducts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    let list = FEATURED_PRODUCTS.filter((product) => {
-      const matchesCat =
-        selectedCategory === 'all' || product.categoryId === selectedCategory;
-      const matchesQuery =
-        !query ||
-        product.name.toLowerCase().includes(query) ||
-        product.categoryName.toLowerCase().includes(query) ||
-        product.sellerName.toLowerCase().includes(query);
-      return matchesCat && matchesQuery;
-    });
-
-    if (sortBy === 'price-asc') {
-      list = [...list].sort((a, b) => a.price - b.price);
-    } else if (sortBy === 'price-desc') {
-      list = [...list].sort((a, b) => b.price - a.price);
-    } else if (sortBy === 'rating') {
-      list = [...list].sort((a, b) => b.rating - a.rating);
+  // Load live active craft categories from PostgreSQL
+  useEffect(() => {
+    let active = true;
+    async function loadCategories() {
+      try {
+        const data = await fetchPublicCategories();
+        if (active) {
+          setCategories(data.results || []);
+        }
+      } catch {
+        if (active) setCategories([]);
+      }
     }
-    return list;
+    loadCategories();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Load live Admin-approved products from PostgreSQL whenever filter/search/sort changes
+  useEffect(() => {
+    let active = true;
+    const timer = setTimeout(async () => {
+      setLoadingCatalog(true);
+      setCatalogError('');
+      try {
+        const data = await fetchPublicProducts({
+          category: selectedCategory,
+          search: searchQuery,
+          ordering: sortBy,
+        });
+        if (!active) return;
+        const normalized = (data.results || [])
+          .map(normalizeStorefrontProduct)
+          .filter(Boolean);
+        setProducts(normalized);
+      } catch {
+        if (active) {
+          setProducts([]);
+          setCatalogError(
+            'Could not load live products from the Craftify server. Make sure Django is running.'
+          );
+        }
+      } finally {
+        if (active) setLoadingCatalog(false);
+      }
+    }, 180);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [selectedCategory, searchQuery, sortBy]);
+
+  const activeCategoryName =
+    selectedCategory === 'all'
+      ? ''
+      : categories.find((c) => c.slug === selectedCategory || c.id === selectedCategory)
+          ?.name || '';
 
   return (
     <div className="min-h-screen bg-[#FAF6F0] text-[#2C2018] flex flex-col">
@@ -60,7 +106,7 @@ export default function StorefrontPage() {
       />
 
       <main className="flex-1">
-        {/* Hero Banner (Matches User's Storefront Mockup) */}
+        {/* Hero Banner */}
         <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6">
           <div className="relative overflow-hidden rounded-2xl border border-[#E8DFD3] bg-[#F1E6D6] min-h-[340px] sm:min-h-[410px] flex items-center">
             <img
@@ -140,61 +186,83 @@ export default function StorefrontPage() {
           </div>
         </section>
 
-        {/* Popular Categories Strip */}
+        {/* Live Craft Categories Strip (from PostgreSQL) */}
         <section
           id="popular-categories"
           className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-12"
         >
           <div className="flex items-center justify-between gap-4 mb-5">
             <h2 className="font-serif text-2xl font-bold text-[#2C2018]">
-              Popular Categories
+              Shop by Craft Category
             </h2>
-            <button
-              type="button"
-              onClick={() => setSelectedCategory('all')}
-              className="inline-flex items-center gap-1 text-sm font-semibold text-[#8B4B28] hover:text-[#733C1E] transition-colors whitespace-nowrap"
-            >
-              <span>View All</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
+            {selectedCategory !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('all')}
+                className="inline-flex items-center gap-1 text-sm font-semibold text-[#8B4B28] hover:text-[#733C1E] transition-colors whitespace-nowrap"
+              >
+                <span>View All</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3.5">
-            {POPULAR_CATEGORIES.map((category) => {
-              const isSelected = selectedCategory === category.id;
-              return (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() =>
-                    setSelectedCategory(isSelected ? 'all' : category.id)
-                  }
-                  className={`group text-left rounded-xl overflow-hidden bg-white border transition-all duration-200 hover:-translate-y-0.5 ${
-                    isSelected
-                      ? 'border-[#8B4B28] ring-2 ring-[#8B4B28]/20'
-                      : 'border-[#EAE1D5] hover:border-[#C9B7A2]'
-                  }`}
-                >
-                  <div className="aspect-[4/3] w-full overflow-hidden bg-[#F3ECE2]">
-                    <img
-                      src={category.image}
-                      alt={category.name}
-                      referrerPolicy="no-referrer"
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  </div>
-                  <div className="px-2.5 py-2.5 text-center">
-                    <p className="text-xs font-semibold text-[#2C2018] leading-snug">
-                      {category.name}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          {categories.length === 0 ? (
+            <div className="rounded-xl border border-[#EAE1D5] bg-white px-6 py-8 text-center">
+              <FolderTree className="mx-auto h-7 w-7 text-[#C5B39F]" />
+              <p className="mt-2 text-sm font-semibold text-[#2C2018]">
+                No craft categories published yet
+              </p>
+              <p className="mt-1 text-xs text-[#6E5E52] max-w-md mx-auto">
+                Categories created by Craftify Admin appear here automatically.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
+              {categories.map((category) => {
+                const isSelected = selectedCategory === category.slug;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedCategory(isSelected ? 'all' : category.slug)
+                    }
+                    className={`group text-left rounded-xl overflow-hidden bg-white border transition-all duration-200 hover:-translate-y-0.5 ${
+                      isSelected
+                        ? 'border-[#8B4B28] ring-2 ring-[#8B4B28]/20'
+                        : 'border-[#EAE1D5] hover:border-[#C9B7A2]'
+                    }`}
+                  >
+                    <div className="aspect-[4/3] w-full overflow-hidden bg-[#F3ECE2] flex items-center justify-center">
+                      {category.cover_image_url ? (
+                        <img
+                          src={category.cover_image_url}
+                          alt={category.name}
+                          referrerPolicy="no-referrer"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      ) : (
+                        <FolderTree className="h-7 w-7 text-[#B69F88]" />
+                      )}
+                    </div>
+                    <div className="px-2.5 py-2.5 text-center">
+                      <p className="text-xs font-semibold text-[#2C2018] leading-snug line-clamp-1">
+                        {category.name}
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-mono text-[#7A6A5E] tabular-nums">
+                        {category.approved_product_count ?? 0} craft
+                        {(category.approved_product_count ?? 0) === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </section>
 
-        {/* Featured Products Grid */}
+        {/* Live Approved Products Grid (from PostgreSQL) */}
         <section
           id="featured-products"
           className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-12 pb-16"
@@ -202,14 +270,12 @@ export default function StorefrontPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <h2 className="font-serif text-2xl font-bold text-[#2C2018]">
-                Featured Products
+                Approved Handmade Crafts
               </h2>
               <p className="text-xs text-[#6E5E52] mt-0.5">
                 {selectedCategory === 'all'
-                  ? 'Handpicked pieces vetted by Craftify curators'
-                  : `Showing ${filteredProducts.length} craft(s) in ${
-                      POPULAR_CATEGORIES.find((c) => c.id === selectedCategory)?.name
-                    }`}
+                  ? 'Live pieces curated and approved by Craftify Admin'
+                  : `Showing ${products.length} craft(s) in ${activeCategoryName || selectedCategory}`}
               </p>
             </div>
 
@@ -229,37 +295,92 @@ export default function StorefrontPage() {
                 aria-label="Sort products"
                 className="rounded-lg border border-[#E2D8CB] bg-white px-3 py-2 text-xs font-medium text-[#2C2018] focus:outline-none focus:border-[#8B4B28]"
               >
-                <option value="featured">Sort: Featured</option>
+                <option value="newest">Sort: Newest Approved</option>
                 <option value="price-asc">Price: Low to High</option>
                 <option value="price-desc">Price: High to Low</option>
-                <option value="rating">Highest Rated</option>
               </select>
             </div>
           </div>
 
-          {filteredProducts.length === 0 ? (
+          {catalogError && (
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+              {catalogError}
+            </div>
+          )}
+
+          {loadingCatalog ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map((skeleton) => (
+                <div
+                  key={skeleton}
+                  className="rounded-xl bg-white border border-[#EAE1D5] overflow-hidden animate-pulse"
+                >
+                  <div className="aspect-[4/3] bg-[#F1E8DC]" />
+                  <div className="p-4 space-y-2.5">
+                    <div className="h-3 w-24 rounded bg-[#F1E8DC]" />
+                    <div className="h-4 w-3/4 rounded bg-[#E7DAC9]" />
+                    <div className="h-4 w-20 rounded bg-[#F1E8DC]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : products.length === 0 ? (
             <div className="rounded-2xl border border-[#EAE1D5] bg-white p-12 text-center">
-              <p className="font-serif text-lg font-semibold text-[#2C2018]">
-                No handmade crafts match your search
+              <Package className="mx-auto h-9 w-9 text-[#C5B39F]" />
+              <p className="mt-3 font-serif text-lg font-semibold text-[#2C2018]">
+                {searchQuery || selectedCategory !== 'all'
+                  ? 'No approved handmade crafts match your filter'
+                  : 'Your live Craftify catalog is ready for its first creations'}
               </p>
-              <p className="mt-1 text-sm text-[#6E5E52]">
-                Try resetting the category filter or searching for pottery, macrame, or paintings.
+              <p className="mt-1 text-sm text-[#6E5E52] max-w-md mx-auto">
+                {searchQuery || selectedCategory !== 'all'
+                  ? 'Try resetting your search or selecting a different craft category.'
+                  : 'Once Craftify Admin creates categories and approves a Seller product listing, it will appear right here automatically.'}
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCategory('all');
-                  setSearchQuery('');
-                }}
-                className="mt-4 rounded-lg bg-[#8B4B28] px-4 py-2 text-xs font-semibold text-white hover:bg-[#733C1E]"
-              >
-                Reset Filters
-              </button>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                {(searchQuery || selectedCategory !== 'all') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory('all');
+                      setSearchQuery('');
+                    }}
+                    className="rounded-lg bg-[#8B4B28] px-4 py-2 text-xs font-semibold text-white hover:bg-[#733C1E]"
+                  >
+                    Reset Filters
+                  </button>
+                )}
+                {user?.role === 'ADMIN' && (
+                  <Link
+                    to="/admin/dashboard"
+                    className="rounded-lg bg-[#8B4B28] px-4 py-2 text-xs font-semibold text-white hover:bg-[#733C1E]"
+                  >
+                    Open Admin Dashboard
+                  </Link>
+                )}
+                {user?.role === 'SELLER' && (
+                  <Link
+                    to="/seller/dashboard"
+                    className="rounded-lg bg-[#8B4B28] px-4 py-2 text-xs font-semibold text-white hover:bg-[#733C1E]"
+                  >
+                    Add Your First Product
+                  </Link>
+                )}
+                {(!user || user.role === 'BUYER') && (
+                  <Link
+                    to="/become-seller"
+                    className="rounded-lg border border-[#D8CBB9] bg-white px-4 py-2 text-xs font-semibold text-[#2C2018] hover:border-[#8B4B28]"
+                  >
+                    Become a Craftify Seller
+                  </Link>
+                )}
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {filteredProducts.map((product) => {
+              {products.map((product) => {
                 const isWishlisted = wishlistIds.includes(product.id);
+                const outOfStock = product.stock <= 0;
                 return (
                   <article
                     key={product.id}
@@ -269,14 +390,23 @@ export default function StorefrontPage() {
                       <button
                         type="button"
                         onClick={() => setActiveProduct(product)}
-                        className="block h-full w-full text-left"
+                        className="flex h-full w-full items-center justify-center text-left"
                       >
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          referrerPolicy="no-referrer"
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
+                        {product.image ? (
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-[#A8927B]">
+                            <ImageIcon className="h-8 w-8" />
+                            <span className="mt-1 text-[11px] font-medium">
+                              Handmade Studio Piece
+                            </span>
+                          </div>
+                        )}
                       </button>
                       <button
                         type="button"
@@ -308,11 +438,19 @@ export default function StorefrontPage() {
                           {product.name}
                         </button>
                         <div className="mt-1.5 flex items-center gap-1.5 text-xs text-[#6E5E52] tabular-nums">
-                          <Star className="h-3.5 w-3.5 fill-[#D9822B] text-[#D9822B]" />
-                          <span className="font-semibold text-[#2C2018]">
-                            {product.rating.toFixed(1)}
-                          </span>
-                          <span>({product.reviewCount})</span>
+                          {product.reviewCount > 0 ? (
+                            <>
+                              <Star className="h-3.5 w-3.5 fill-[#D9822B] text-[#D9822B]" />
+                              <span className="font-semibold text-[#2C2018]">
+                                {product.rating.toFixed(1)}
+                              </span>
+                              <span>({product.reviewCount})</span>
+                            </>
+                          ) : (
+                            <span>
+                              {outOfStock ? 'Currently out of stock' : `${product.stock} available`}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -329,10 +467,11 @@ export default function StorefrontPage() {
                         </div>
                         <button
                           type="button"
+                          disabled={outOfStock}
                           onClick={() => addToCart(product)}
-                          className="rounded-lg bg-[#FAF6F0] border border-[#DFD2C2] px-3 py-1.5 text-xs font-semibold text-[#8B4B28] hover:bg-[#8B4B28] hover:text-white hover:border-[#8B4B28] transition-colors whitespace-nowrap"
+                          className="rounded-lg bg-[#FAF6F0] border border-[#DFD2C2] px-3 py-1.5 text-xs font-semibold text-[#8B4B28] hover:bg-[#8B4B28] hover:text-white hover:border-[#8B4B28] disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                         >
-                          Add to Cart
+                          {outOfStock ? 'Sold Out' : 'Add to Cart'}
                         </button>
                       </div>
                     </div>
@@ -382,18 +521,18 @@ export default function StorefrontPage() {
             <div className="lg:col-span-5 grid grid-cols-2 gap-4">
               <div className="rounded-xl bg-white border border-[#EAE1D5] p-5">
                 <p className="font-mono text-2xl font-bold text-[#2C2018] tabular-nums">
-                  120+
-                </p>
-                <p className="mt-1 text-xs text-[#6E5E52]">
-                  Verified independent artisan studios across India
-                </p>
-              </div>
-              <div className="rounded-xl bg-white border border-[#EAE1D5] p-5">
-                <p className="font-mono text-2xl font-bold text-[#2C2018] tabular-nums">
                   100%
                 </p>
                 <p className="mt-1 text-xs text-[#6E5E52]">
                   Admin-moderated handmade products before listing
+                </p>
+              </div>
+              <div className="rounded-xl bg-white border border-[#EAE1D5] p-5">
+                <p className="font-mono text-2xl font-bold text-[#2C2018] tabular-nums">
+                  {categories.length}
+                </p>
+                <p className="mt-1 text-xs text-[#6E5E52]">
+                  Active handmade craft categories live on Craftify
                 </p>
               </div>
               <div className="rounded-xl bg-white border border-[#EAE1D5] p-5">
@@ -417,7 +556,7 @@ export default function StorefrontPage() {
         </section>
       </main>
 
-      {/* Quiet Editorial Footer + Role Workspace Preview Links */}
+      {/* Quiet Editorial Footer */}
       <footer className="border-t border-[#E8DFD3] bg-[#FAF6F0]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>

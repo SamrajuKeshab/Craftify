@@ -4,6 +4,11 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from apps.catalog.urls import (
+    admin_catalog_urlpatterns,
+    public_catalog_urlpatterns,
+    seller_product_urlpatterns,
+)
 from apps.sellers.urls import admin_urlpatterns, seller_urlpatterns
 from common.views import HealthCheckView
 
@@ -12,7 +17,10 @@ urlpatterns = [
     path("api/v1/health/", HealthCheckView.as_view(), name="api-health"),
     path("api/v1/auth/", include("apps.accounts.urls")),
     path("api/v1/sellers/", include(seller_urlpatterns)),
+    path("api/v1/seller/products/", include(seller_product_urlpatterns)),
     path("api/v1/admin/", include(admin_urlpatterns)),
+    path("api/v1/admin/", include(admin_catalog_urlpatterns)),
+    path("api/v1/", include(public_catalog_urlpatterns)),
 ]
 
 if settings.DEBUG:

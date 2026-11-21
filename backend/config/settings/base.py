@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "apps.accounts.apps.AccountsConfig",
     "apps.audit.apps.AuditConfig",
     "apps.sellers.apps.SellersConfig",
+    "apps.catalog.apps.CatalogConfig",
 ]
 
 MIDDLEWARE = [
@@ -112,6 +113,7 @@ REST_FRAMEWORK = {
         "password_reset": "5/hour",
         "email_verification": "5/hour",
         "seller_apply": "10/hour",
+        "media_upload": "30/hour",
     },
 }
 

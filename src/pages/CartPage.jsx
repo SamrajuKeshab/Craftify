@@ -194,12 +194,18 @@ export default function CartPage() {
                       className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5"
                     >
                       <div className="flex items-center gap-4 min-w-0">
-                        <img
-                          src={entry.product.image}
-                          alt={entry.product.name}
-                          referrerPolicy="no-referrer"
-                          className="h-20 w-20 rounded-xl object-cover bg-[#F3ECE2] shrink-0"
-                        />
+                        {entry.product.image ? (
+                          <img
+                            src={entry.product.image}
+                            alt={entry.product.name}
+                            referrerPolicy="no-referrer"
+                            className="h-20 w-20 rounded-xl object-cover bg-[#F3ECE2] shrink-0"
+                          />
+                        ) : (
+                          <div className="h-20 w-20 rounded-xl bg-[#F3ECE2] border border-[#E5DACB] flex items-center justify-center text-[#A8927B] shrink-0">
+                            <ShoppingBag className="h-6 w-6" />
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <h3 className="text-sm sm:text-base font-semibold text-[#2C2018] truncate">
                             {entry.product.name}
