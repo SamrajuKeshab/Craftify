@@ -3,8 +3,8 @@
 > **Purpose:** Living tracker for both the project owner (in VS Code / GitHub) and AI sessions. Read this file at the start of every new work session and update it after every completed module.
 
 **Last Updated:** 2026-11-21  
-**Current Milestone:** Week 3 Completed & Verified (9/9 Django Auth & Security Tests Passing in VS Code)  
-**Next Module:** Week 4 — Admin Panel & Seller Onboarding (`SellerApplication`, Verification Docs, Approval & Role Promotion APIs)
+**Current Milestone:** Week 4 Implemented (Admin Panel, Seller Onboarding, Verification Docs & Audit Logs — Ready for VS Code Migration & Test Run)  
+**Next Module:** Week 5 — Categories (with Category Commission %) & Product Management + Admin Moderation
 
 ---
 
@@ -33,35 +33,35 @@
 | **1** | SRS, Architecture, ERD, API Docs & UI/UX Blueprint | N/A | N/A | Reviewed | **Done** |
 | **2** | React (`.jsx`), Django 5 & PostgreSQL Starter Setup | Live & Verified | Live & Verified | Verified Locally in VS Code | **Done** |
 | **3** | Full Auth (In-Memory JWT + `HttpOnly` Refresh, Email Verification, Password Reset/Change, Brute-Force Lockout, Logout-All) | Live & Verified | Live & Verified | 9/9 Django Tests OK + Build/Lint OK | **Done** |
-| **4** | Admin Panel & Seller Onboarding (`SellerApplication`, Verification Docs, Approval) | Not Started | UI Shell / Preview State | Not Started | **Next Up** |
-| **5** | Categories (with Commission %) & Product Management + Admin Moderation | Not Started | UI Shell / Preview State | Not Started | Pending |
-| **6** | Customer Shopping Storefront (Live Search, Filters, Sorting, PDP) | Not Started | UI Preview Ready | Not Started | Pending |
-| **7** | Cart, Wishlist, Coupons & Buyer Addresses | Not Started | UI Preview Ready | Not Started | Pending |
-| **8** | Multi-Vendor Order Splitting, Stock Locking, Razorpay & COD | Not Started | UI Preview Ready | Not Started | Pending |
-| **9** | Shipping, Courier Tracking, Shipment Events & 7-Day Returns | Not Started | UI Preview Ready | Not Started | Pending |
-| **10** | Financial Ledger, Category Commissions, Refunds & Seller Payouts | Not Started | Not Started | Not Started | Pending |
-| **11** | Verified Reviews, Notifications & Real DB Analytics Charts | Not Started | Preview Charts Ready | Not Started | Pending |
+| **4** | Admin Panel & Seller Onboarding (`SellerApplication`, Verification Docs, Approval, `SellerProfile`, `AuditLog`) | Implemented | Live & Wired | 6 New Django Tests Added (Run in VS Code) | **Ready to Verify** |
+| **5** | Categories (with Commission %) & Product Management + Admin Moderation | Not Started | UI Shell / Empty State | Not Started | **Next Up** |
+| **6** | Customer Shopping Storefront (Live Search, Filters, Sorting, PDP) | Not Started | Starter Catalog Ready | Not Started | Pending |
+| **7** | Cart, Wishlist, Coupons & Buyer Addresses | Not Started | Client Cart Ready | Not Started | Pending |
+| **8** | Multi-Vendor Order Splitting, Stock Locking, Razorpay & COD | Not Started | Empty State Ready | Not Started | Pending |
+| **9** | Shipping, Courier Tracking, Shipment Events & 7-Day Returns | Not Started | Empty State Ready | Not Started | Pending |
+| **10** | Financial Ledger, Category Commissions, Refunds & Seller Payouts | Not Started | Empty State Ready | Not Started | Pending |
+| **11** | Verified Reviews, Notifications & Real DB Analytics Charts | Not Started | Baseline Charts Ready | Not Started | Pending |
 | **12** | Full Security Audit (OWASP ASVS), Load/E2E Tests & Vercel/Render Deploy | Not Started | Not Started | Not Started | Pending |
 
 ---
 
-## 3. Honest Reality Check: Live Backend vs. Preview State
+## 3. Honest Reality Check: Live Backend vs. Upcoming Modules
 
-### Implemented & Ready for Live Django Connection (Weeks 2–3)
-- `GET /api/v1/health/` — Database & service health verification.
-- `POST /api/v1/auth/register/` — Public Buyer-only registration + dispatches hashed 24h email verification link + sets `HttpOnly` refresh cookie.
-- `POST /api/v1/auth/verify-email/` & `POST /api/v1/auth/resend-verification/` — Single-use SHA-256 verification flow (throttled `5/hour`).
-- `POST /api/v1/auth/login/` — Username + password login with 5-failure/15-min lockout, DRF throttling (`5/minute`), suspended account blocking, `HttpOnly` refresh cookie, and DB-resolved `redirect_url`.
-- `POST /api/v1/auth/token/refresh/` — Rotates `HttpOnly` refresh cookie, blacklists old token, enforces `is_active`, and returns fresh in-memory access token.
-- `POST /api/v1/auth/password/reset/` & `/password/reset/confirm/` — Anti-enumeration reset request + 30-min single-use hashed token confirmation that revokes all existing sessions.
-- `POST /api/v1/auth/password/change/` — Verifies current password, updates hash, revokes other active sessions.
-- `POST /api/v1/auth/logout/` & `POST /api/v1/auth/logout-all/` — Single-session and all-device refresh token revocation.
-- `GET/PATCH /api/v1/auth/me/` — Authenticated user profile (role read-only).
-- Frontend pages & controls: `/login`, `/sign-up`, `/verify-email`, `/forgot-password`, `/reset-password`, dashboard `EmailVerificationBanner`, and shared `AccountSecurityPanel` across Buyer, Seller, and Admin settings.
-- **Strict Live Auth & Clean Dashboards Enforced**: Removed all offline preview auth fallbacks (`/login` and `/sign-up` strictly require the running Django backend and show a clear connection error if Django is stopped) and removed fake default orders, cart items, wishlists, addresses, and revenue figures from Buyer, Seller, and Admin dashboards (all dashboards now display honest `₹0` / empty states until their respective backend modules are built).
+### Implemented & Connected to Live Django + PostgreSQL (Weeks 2–4)
+- **Auth & Security (`apps/accounts`)**: `/register/`, `/verify-email/`, `/resend-verification/`, `/login/`, `/token/refresh/` (`HttpOnly` cookie), `/logout/`, `/logout-all/`, `/password/reset/`, `/password/reset/confirm/`, `/password/change/`, `/me/`. Strict live Django auth (zero offline fake fallbacks).
+- **Seller Onboarding & Shop Profile (`apps/sellers`)**:
+  - `POST /api/v1/sellers/apply/` — Verified Buyer-only application with Indian PAN/GSTIN/IFSC/Pincode validation, masked bank storage, and optional verification document upload (`.pdf`/`.jpg`/`.png`, max 5 MB).
+  - `GET /api/v1/sellers/application-status/` — Live application status (`PENDING` / `APPROVED` / `REJECTED` with Admin review notes).
+  - `GET/PATCH /api/v1/sellers/shop/` — Approved Seller studio profile management.
+  - `GET /api/v1/sellers/documents/<uuid>/` — RBAC-protected document download (strictly Admin or uploading applicant).
+- **Admin Governance & Audit Trail (`apps/sellers`, `apps/audit`)**:
+  - `GET /api/v1/admin/dashboard/` — Live PostgreSQL Buyer/Seller counts, pending seller application counts, and recent audit activity.
+  - `GET /api/v1/admin/seller-applications/` & `POST /api/v1/admin/seller-applications/<uuid>/review/` — Atomic approve (promotes Buyer → `SELLER` and creates `SellerProfile`) or reject (with required review reason).
+  - `GET /api/v1/admin/sellers/` & `POST /api/v1/admin/sellers/<uuid>/toggle-suspend/` — Suspend or reinstate seller studios.
+  - `GET /api/v1/admin/buyers/` & `POST /api/v1/admin/users/<uuid>/toggle-active/` — Manage Buyer accounts and revoke sessions on suspension.
+  - `GET /api/v1/admin/audit-logs/` — Immutable PostgreSQL governance audit log.
 
-### Currently Running on Empty/Starter States (Upcoming Weeks 4–11)
-- Seller applications, verification documents & Admin approval mutations (`apps/sellers` — **Week 4**).
+### Scheduled Upcoming Modules (Weeks 5–11)
 - Categories with commission % & Product upload/moderation (`apps/categories`, `apps/products` — **Weeks 5–6**).
 - Persistent Cart, Wishlist, Coupons & Buyer Addresses (`apps/cart`, `apps/coupons` — **Week 7**).
 - Multi-vendor order splitting, inventory locking, Razorpay HMAC/webhook & COD (`apps/orders`, `apps/payments` — **Week 8**).
@@ -69,31 +69,29 @@
 
 ---
 
-## 4. VS Code Local Verification Checklist (Week 3)
+## 4. VS Code Local Verification Checklist (Week 4)
 
 After pushing to GitHub and running `git pull origin main` in VS Code:
 
-- [ ] Ensure your local root `.env` has `VITE_API_BASE_URL="/api/v1"` (uses the new Vite `/api` proxy so `HttpOnly` cookies stay same-origin)
-- [ ] Ensure `backend/.env` has `FRONTEND_URL=http://localhost:3000` (keep your real local `DB_PASSWORD` only in `backend/.env`, never `backend/.env.example`)
-- [ ] Run migrations for the new `User` lockout fields & `AuthActionToken` model:
-  ```bash
+- [ ] Generate and apply the new `audit` and `sellers` database migrations:
+  ```powershell
   cd backend
-  python manage.py makemigrations accounts
+  python manage.py makemigrations audit sellers
   python manage.py migrate
   ```
-- [ ] Run the expanded Week 3 security test suite (7 test cases):
-  ```bash
+- [ ] Run the full test suite (15 total tests: 9 Week 3 auth tests + 6 Week 4 seller/admin tests):
+  ```powershell
   python manage.py test
   ```
-- [ ] Start Django (`python manage.py runserver`) and React (`npm run dev`), then test:
-  - Sign up a new Buyer → copy the `/verify-email?token=...` link printed in your VS Code Django terminal → open it in your browser → confirm `Email Verified`.
-  - Reload the browser (`F5`) → confirm you stay logged in via the silent `HttpOnly` refresh cookie (and `localStorage` contains zero JWTs).
-  - Test `/forgot-password` → copy `/reset-password?token=...` from the Django terminal → set a new password → log in with the new password.
-  - Test **Settings → Change Password** and **Sign Out All Devices** inside your dashboard.
+- [ ] Start Django (`python manage.py runserver`) and React (`npm run dev`) and test the end-to-end flow:
+  1. Sign up or log in as a Buyer → open the `/verify-email?token=...` link printed in your Django terminal so your Buyer email is verified.
+  2. Click **Become a Seller** → fill out the studio details + optional PDF/PNG doc → click **Submit Application**.
+  3. Log in as your **Admin** → open **Sellers → Seller Applications** → see the real application from PostgreSQL → click **Approve & Promote**.
+  4. Log back in as that Buyer → confirm Django automatically redirects you to **`/seller/dashboard`** with your real studio name and working **My Shop** profile editor!
 
 ---
 
 ## 5. How to Start the Next Session / Module
 
-Once Week 3 tests pass in VS Code, tell the AI:
-> *"Check `PROJECT_PROGRESS.md` — Week 3 tests passed in VS Code. Let's start Week 4 (Seller Onboarding, Verification Documents & Admin Approval APIs)."*
+Once Week 4 tests pass in VS Code, tell the AI:
+> *"Check `PROJECT_PROGRESS.md` — Week 4 tests passed in VS Code. Let's start Week 5 (Categories with Commission % & Product Management + Admin Moderation)."*

@@ -1,5 +1,7 @@
 import {
   ArrowRight,
+  CheckCircle2,
+  Clock,
   Heart,
   MapPin,
   Package,
@@ -7,21 +9,48 @@ import {
   ShoppingBag,
   Store,
   Truck,
+  XCircle,
 } from 'lucide-react';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import AccountSecurityPanel from '../components/dashboards/AccountSecurityPanel';
 import DashboardShell from '../components/dashboards/DashboardShell';
 import EmailVerificationBanner from '../components/dashboards/EmailVerificationBanner';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { FEATURED_PRODUCTS } from '../data/craftifyData';
+import { fetchMySellerApplicationStatus } from '../services/sellerService';
 import { formatINR } from '../utils/formatters';
 
 export default function BuyerDashboard() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { placedOrders, wishlistIds, addToCart, toggleWishlist } = useCart();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('orders');
+  const [sellerStatus, setSellerStatus] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSellerStatus() {
+      try {
+        const data = await fetchMySellerApplicationStatus();
+        if (!active) return;
+        setSellerStatus(data);
+        if (data.role === 'SELLER' && user?.role !== 'SELLER') {
+          await refreshUser();
+        }
+      } catch {
+        // Non-blocking status check
+      }
+    }
+    if (user) {
+      loadSellerStatus();
+    }
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const navItems = [
     { id: 'orders', label: 'My Orders', icon: Package, badge: placedOrders.length },
@@ -34,6 +63,8 @@ export default function BuyerDashboard() {
     wishlistIds.includes(p.id)
   );
 
+  const sellerApp = sellerStatus?.application;
+
   return (
     <DashboardShell
       title="Buyer Account"
@@ -43,13 +74,31 @@ export default function BuyerDashboard() {
       onSelectTab={setActiveTab}
       rightBadge={
         <div className="flex items-center gap-3">
-          <Link
-            to="/become-seller"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2D8CB] bg-[#FAF6F0] px-3 py-1.5 text-xs font-semibold text-[#8B4B28] hover:bg-[#8B4B28] hover:text-white transition-colors whitespace-nowrap"
-          >
-            <Store className="h-3.5 w-3.5" />
-            <span>Become a Seller</span>
-          </Link>
+          {sellerStatus?.role === 'SELLER' ? (
+            <button
+              type="button"
+              onClick={async () => {
+                await refreshUser();
+                navigate('/seller/dashboard');
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#2E9A90] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#247D75] transition-colors whitespace-nowrap"
+            >
+              <Store className="h-3.5 w-3.5" />
+              <span>Open Seller Dashboard</span>
+            </button>
+          ) : (
+            <Link
+              to="/become-seller"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2D8CB] bg-[#FAF6F0] px-3 py-1.5 text-xs font-semibold text-[#8B4B28] hover:bg-[#8B4B28] hover:text-white transition-colors whitespace-nowrap"
+            >
+              <Store className="h-3.5 w-3.5" />
+              <span>
+                {sellerApp?.status === 'PENDING'
+                  ? 'Seller App Pending'
+                  : 'Become a Seller'}
+              </span>
+            </Link>
+          )}
           <Link
             to="/cart"
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#8B4B28] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#733C1E] whitespace-nowrap"
@@ -61,6 +110,59 @@ export default function BuyerDashboard() {
       }
     >
       <EmailVerificationBanner />
+
+      {/* Live Seller Application Status Banner (if submitted) */}
+      {sellerApp && (
+        <div
+          className={`mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs ${
+            sellerApp.status === 'APPROVED'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : sellerApp.status === 'REJECTED'
+              ? 'bg-red-50 border-red-200 text-red-900'
+              : 'bg-blue-50 border-blue-200 text-blue-900'
+          }`}
+        >
+          <div className="flex items-start sm:items-center gap-2.5">
+            {sellerApp.status === 'APPROVED' ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
+            ) : sellerApp.status === 'REJECTED' ? (
+              <XCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5 sm:mt-0" />
+            ) : (
+              <Clock className="h-4 w-4 text-blue-600 shrink-0 mt-0.5 sm:mt-0" />
+            )}
+            <span>
+              {sellerApp.status === 'APPROVED' && (
+                <>
+                  Your seller studio <strong>{sellerApp.shop_name}</strong> was
+                  approved by Admin!
+                </>
+              )}
+              {sellerApp.status === 'PENDING' && (
+                <>
+                  Seller application for <strong>{sellerApp.shop_name}</strong> is
+                  currently under Admin review.
+                </>
+              )}
+              {sellerApp.status === 'REJECTED' && (
+                <>
+                  Seller application for <strong>{sellerApp.shop_name}</strong> was
+                  not approved: {sellerApp.review_notes}
+                </>
+              )}
+            </span>
+          </div>
+          <Link
+            to={sellerApp.status === 'APPROVED' ? '/seller/dashboard' : '/become-seller'}
+            className="font-semibold underline whitespace-nowrap self-end sm:self-auto"
+          >
+            {sellerApp.status === 'APPROVED'
+              ? 'Go to Seller Studio'
+              : sellerApp.status === 'REJECTED'
+              ? 'Review & Re-Apply'
+              : 'View Application'}
+          </Link>
+        </div>
+      )}
 
       {activeTab === 'orders' && (
         <div className="space-y-4">

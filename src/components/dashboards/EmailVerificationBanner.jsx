@@ -20,7 +20,11 @@ export default function EmailVerificationBanner() {
     setSending(true);
     try {
       const res = await resendVerification();
-      showToast(res.message || 'Verification email sent');
+      showToast(
+        res.detail ||
+          res.message ||
+          'Verification link dispatched! Check your inbox (or Django terminal in local dev).'
+      );
     } catch (err) {
       showToast(err.message || 'Could not resend email');
     } finally {

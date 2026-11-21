@@ -4,6 +4,7 @@ import {
   changePasswordRequest,
   checkBackendHealth,
   confirmPasswordReset,
+  fetchCurrentUser,
   loginRequest,
   logoutAllRequest,
   logoutRequest,
@@ -222,6 +223,16 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      const freshUser = await fetchCurrentUser();
+      setUser(freshUser);
+      return freshUser;
+    } catch {
+      return null;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -232,6 +243,7 @@ export function AuthProvider({ children }) {
         register,
         logout,
         logoutAll,
+        refreshUser,
         verifyEmail,
         resendVerification,
         sendPasswordReset,

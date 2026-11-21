@@ -29,6 +29,8 @@ INSTALLED_APPS = [
     "django_filters",
     # Craftify modular domain apps
     "apps.accounts.apps.AccountsConfig",
+    "apps.audit.apps.AuditConfig",
+    "apps.sellers.apps.SellersConfig",
 ]
 
 MIDDLEWARE = [
@@ -109,6 +111,7 @@ REST_FRAMEWORK = {
         "register": "10/hour",
         "password_reset": "5/hour",
         "email_verification": "5/hour",
+        "seller_apply": "10/hour",
     },
 }
 
