@@ -1,9 +1,11 @@
 """Comprehensive Week 3 unit & security integration tests for Craftify authentication."""
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.cache import cache
 from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -12,24 +14,21 @@ from rest_framework.test import APITestCase
 
 from .models import AuthActionToken
 from .services import create_action_token
+from .views import LoginView
 
 User = get_user_model()
 
-# Disable DRF throttle cache interference during repeated auth test runs
-NO_THROTTLE_REST_FRAMEWORK = {
-    **settings.REST_FRAMEWORK,
-    "DEFAULT_THROTTLE_CLASSES": (),
-}
 
-
-@override_settings(
-    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-    REST_FRAMEWORK=NO_THROTTLE_REST_FRAMEWORK,
-)
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
 class CraftifyAuthSecurityTests(APITestCase):
-    """Verifies registration role lock, email verification, password reset, lockout & sessions."""
+    """Verifies registration role lock, email verification, password reset, lockout, throttling & sessions."""
 
     CSRF_HEADERS = {"HTTP_X_REQUESTED_WITH": "XMLHttpRequest"}
+
+    def setUp(self):
+        super().setUp()
+        # Clear DRF throttle cache before each test so tests never leak rate-limit counters
+        cache.clear()
 
     def test_health_check_endpoint(self):
         response = self.client.get(reverse("api-health"))
@@ -134,25 +133,43 @@ class CraftifyAuthSecurityTests(APITestCase):
             password="ValidPassword#2026",
             role=User.Role.BUYER,
         )
+        # Bypass IP throttle here so we isolate and verify the per-account 5-failure lockout
+        with patch.object(LoginView, "throttle_classes", []):
+            for _ in range(5):
+                res = self.client.post(
+                    reverse("auth-login"),
+                    {"username": "rahul_verma", "password": "WrongPassword!"},
+                    format="json",
+                )
+                self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+            user.refresh_from_db()
+            self.assertTrue(user.is_locked())
+
+            # Even with correct password, account stays locked during window
+            locked_res = self.client.post(
+                reverse("auth-login"),
+                {"username": "rahul_verma", "password": "ValidPassword#2026"},
+                format="json",
+            )
+            self.assertEqual(locked_res.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn("Too many failed login attempts", str(locked_res.data))
+
+    def test_login_rate_limiting_returns_429_on_sixth_rapid_request(self):
         for _ in range(5):
             res = self.client.post(
                 reverse("auth-login"),
-                {"username": "rahul_verma", "password": "WrongPassword!"},
+                {"username": "unknown_probe", "password": "WrongPassword!"},
                 format="json",
             )
             self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
-        user.refresh_from_db()
-        self.assertTrue(user.is_locked())
-
-        # Even with correct password, account stays locked during window
-        locked_res = self.client.post(
+        throttled_res = self.client.post(
             reverse("auth-login"),
-            {"username": "rahul_verma", "password": "ValidPassword#2026"},
+            {"username": "unknown_probe", "password": "WrongPassword!"},
             format="json",
         )
-        self.assertEqual(locked_res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("Too many failed login attempts", str(locked_res.data))
+        self.assertEqual(throttled_res.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
     def test_password_reset_flow_prevents_enumeration_and_revokes_old_sessions(self):
         user = User.objects.create_user(
