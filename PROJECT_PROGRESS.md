@@ -3,7 +3,7 @@
 > **Purpose:** Living tracker for both the project owner (in VS Code / GitHub) and AI sessions. Read this file at the start of every new work session and update it after every completed module.
 
 **Last Updated:** 2026-11-21  
-**Current Milestone:** Week 4 Implemented (Admin Panel, Seller Onboarding, Verification Docs & Audit Logs — Ready for VS Code Migration & Test Run)  
+**Current Milestone:** Week 4 Completed & Verified (15/15 Django Auth, Seller Onboarding & Admin Tests Passing in VS Code)  
 **Next Module:** Week 5 — Categories (with Category Commission %) & Product Management + Admin Moderation
 
 ---
@@ -33,7 +33,7 @@
 | **1** | SRS, Architecture, ERD, API Docs & UI/UX Blueprint | N/A | N/A | Reviewed | **Done** |
 | **2** | React (`.jsx`), Django 5 & PostgreSQL Starter Setup | Live & Verified | Live & Verified | Verified Locally in VS Code | **Done** |
 | **3** | Full Auth (In-Memory JWT + `HttpOnly` Refresh, Email Verification, Password Reset/Change, Brute-Force Lockout, Logout-All) | Live & Verified | Live & Verified | 9/9 Django Tests OK + Build/Lint OK | **Done** |
-| **4** | Admin Panel & Seller Onboarding (`SellerApplication`, Verification Docs, Approval, `SellerProfile`, `AuditLog`) | Implemented | Live & Wired | 6 New Django Tests Added (Run in VS Code) | **Ready to Verify** |
+| **4** | Admin Panel & Seller Onboarding (`SellerApplication`, Verification Docs, Approval, `SellerProfile`, `AuditLog`) | Live & Verified | Live & Verified | 15/15 Django Tests OK + Build/Lint OK | **Done** |
 | **5** | Categories (with Commission %) & Product Management + Admin Moderation | Not Started | UI Shell / Empty State | Not Started | **Next Up** |
 | **6** | Customer Shopping Storefront (Live Search, Filters, Sorting, PDP) | Not Started | Starter Catalog Ready | Not Started | Pending |
 | **7** | Cart, Wishlist, Coupons & Buyer Addresses | Not Started | Client Cart Ready | Not Started | Pending |

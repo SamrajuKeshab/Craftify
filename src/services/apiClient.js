@@ -1,12 +1,23 @@
 import axios from 'axios';
 
-// Uses Vite same-origin proxy `/api/v1` in local VS Code dev so HttpOnly refresh cookies work seamlessly.
+// Uses Vite same-origin proxy `/api/v1` in local VS Code dev so HttpOnly refresh cookies persist across reloads.
 // In production (Vercel), set VITE_API_BASE_URL to your Render HTTPS URL (e.g. https://craftify-api.onrender.com/api/v1).
+const rawEnvBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
+const isLocalCrossPortDevUrl =
+  import.meta.env.DEV &&
+  /^https?:\/\/(127\.0\.0\.1|localhost):8000\/api\/v1\/?$/i.test(rawEnvBaseUrl);
+
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || '/api/v1';
+  !rawEnvBaseUrl || isLocalCrossPortDevUrl
+    ? '/api/v1'
+    : rawEnvBaseUrl.replace(/\/+$/, '');
 
 // Short-lived JWT access token stored strictly in JS memory (never localStorage or sessionStorage)
 let inMemoryAccessToken = null;
+
+// Single-flight mutex so concurrent 401s or React StrictMode double-mounts NEVER send two
+// competing rotating refresh-token requests (which would blacklist the cookie and log the user out).
+let inflightRefreshPromise = null;
 
 export function setAccessToken(token) {
   inMemoryAccessToken = token || null;
@@ -20,9 +31,42 @@ export function clearAccessToken() {
   inMemoryAccessToken = null;
 }
 
+/**
+ * Deduplicated HttpOnly cookie refresh call. All concurrent callers share the exact same
+ * in-flight promise so SimpleJWT token rotation never races against itself.
+ */
+export function refreshAccessToken() {
+  if (!inflightRefreshPromise) {
+    inflightRefreshPromise = axios
+      .post(
+        `${API_BASE_URL}/auth/token/refresh/`,
+        {},
+        {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        }
+      )
+      .then(({ data }) => {
+        setAccessToken(data.access);
+        return data;
+      })
+      .catch((err) => {
+        clearAccessToken();
+        throw err;
+      })
+      .finally(() => {
+        inflightRefreshPromise = null;
+      });
+  }
+  return inflightRefreshPromise;
+}
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 6000,
+  timeout: 8000,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -38,7 +82,7 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Silently rotate access token using the HttpOnly refresh cookie when a 401 occurs
+// Silently rotate access token using the deduplicated HttpOnly refresh cookie when a 401 occurs
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -55,18 +99,7 @@ apiClient.interceptors.response.use(
     ) {
       originalRequest._retry = true;
       try {
-        const { data } = await axios.post(
-          `${API_BASE_URL}/auth/token/refresh/`,
-          {},
-          {
-            withCredentials: true,
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest',
-            },
-          }
-        );
-        setAccessToken(data.access);
+        const data = await refreshAccessToken();
         originalRequest.headers.Authorization = `Bearer ${data.access}`;
         return apiClient(originalRequest);
       } catch {

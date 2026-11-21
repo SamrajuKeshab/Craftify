@@ -46,13 +46,13 @@ class User(AbstractUser):
         ]
 
     def get_dashboard_redirect_url(self) -> str:
-        """Authoritative post-login dashboard route resolved strictly from DB role."""
+        """Authoritative post-login route resolved strictly from DB role."""
         mapping = {
             self.Role.ADMIN: "/admin/dashboard",
             self.Role.SELLER: "/seller/dashboard",
-            self.Role.BUYER: "/buyer/dashboard",
+            self.Role.BUYER: "/",
         }
-        return mapping.get(self.role, "/buyer/dashboard")
+        return mapping.get(self.role, "/")
 
     def is_locked(self) -> bool:
         """Returns True if the account is currently in a temporary brute-force lockout."""

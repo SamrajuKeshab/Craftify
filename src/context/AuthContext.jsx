@@ -20,7 +20,49 @@ const AuthContext = createContext(null);
 const BACKEND_OFFLINE_MSG =
   'Cannot reach the Craftify Django server. Make sure Django is running (`python manage.py runserver`) and try again.';
 
-function resolveRedirectUrl(role) {
+// Module-level session bootstrap promise prevents React StrictMode double-mount from
+// sending two competing rotating-refresh requests (which blacklisted the cookie on page reload).
+let bootstrapSessionPromise = null;
+
+function hydrateSessionOnce() {
+  if (!bootstrapSessionPromise) {
+    bootstrapSessionPromise = (async () => {
+      const health = await checkBackendHealth();
+      if (!health.connected) {
+        clearAccessToken();
+        return { connected: false, user: null };
+      }
+      try {
+        const data = await refreshSessionRequest();
+        setAccessToken(data.access);
+        return { connected: true, user: data.user };
+      } catch {
+        clearAccessToken();
+        return { connected: true, user: null };
+      }
+    })();
+  }
+  return bootstrapSessionPromise;
+}
+
+function resetBootstrapSession() {
+  bootstrapSessionPromise = null;
+}
+
+/**
+ * Post-login / post-signup landing route:
+ * Buyers land on the Home Page (/), Sellers on /seller/dashboard, Admins on /admin/dashboard.
+ */
+function resolvePostLoginUrl(role) {
+  if (role === 'ADMIN') return '/admin/dashboard';
+  if (role === 'SELLER') return '/seller/dashboard';
+  return '/';
+}
+
+/**
+ * Account / Dashboard route when clicking the user's profile chip in the Navbar.
+ */
+function resolveAccountDashboardUrl(role) {
   if (role === 'ADMIN') return '/admin/dashboard';
   if (role === 'SELLER') return '/seller/dashboard';
   return '/buyer/dashboard';
@@ -48,31 +90,15 @@ export function AuthProvider({ children }) {
   const [backendConnected, setBackendConnected] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // On mount: check real Django backend and silently hydrate session via HttpOnly refresh cookie
+  // On mount: hydrate session cleanly ONCE via HttpOnly refresh cookie (StrictMode-safe)
   useEffect(() => {
     let active = true;
-    async function initAuth() {
-      const health = await checkBackendHealth();
+    hydrateSessionOnce().then((result) => {
       if (!active) return;
-      setBackendConnected(health.connected);
-
-      if (health.connected) {
-        try {
-          const data = await refreshSessionRequest();
-          if (!active) return;
-          setAccessToken(data.access);
-          setUser(data.user);
-        } catch {
-          clearAccessToken();
-          if (active) setUser(null);
-        }
-      } else {
-        clearAccessToken();
-        setUser(null);
-      }
-      if (active) setAuthLoading(false);
-    }
-    initAuth();
+      setBackendConnected(result.connected);
+      setUser(result.user);
+      setAuthLoading(false);
+    });
     return () => {
       active = false;
     };
@@ -92,9 +118,13 @@ export function AuthProvider({ children }) {
       setBackendConnected(true);
       setAccessToken(data.access);
       setUser(data.user);
+      bootstrapSessionPromise = Promise.resolve({
+        connected: true,
+        user: data.user,
+      });
       return {
         user: data.user,
-        redirectUrl: data.redirect_url || resolveRedirectUrl(data.user.role),
+        redirectUrl: data.redirect_url || resolvePostLoginUrl(data.user.role),
       };
     } catch (err) {
       throw new Error(extractApiError(err, 'Invalid username or password.'));
@@ -103,6 +133,7 @@ export function AuthProvider({ children }) {
 
   /**
    * Real Django Public Sign-Up — always requires live Django + PostgreSQL (never fakes registration).
+   * Redirects newly created Buyers directly to the Craftify Home Page (/).
    */
   const register = async ({ fullName, username, email, password, confirmPassword }) => {
     if (password !== confirmPassword) {
@@ -123,9 +154,13 @@ export function AuthProvider({ children }) {
       setBackendConnected(true);
       setAccessToken(data.access);
       setUser(data.user);
+      bootstrapSessionPromise = Promise.resolve({
+        connected: true,
+        user: data.user,
+      });
       return {
         user: data.user,
-        redirectUrl: data.redirect_url || '/buyer/dashboard',
+        redirectUrl: data.redirect_url || '/',
       };
     } catch (err) {
       throw new Error(
@@ -137,6 +172,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     await logoutRequest();
     clearAccessToken();
+    resetBootstrapSession();
     setUser(null);
   };
 
@@ -147,6 +183,7 @@ export function AuthProvider({ children }) {
       throw new Error(extractApiError(err, 'Could not revoke active sessions.'));
     }
     clearAccessToken();
+    resetBootstrapSession();
     setUser(null);
   };
 
@@ -227,6 +264,10 @@ export function AuthProvider({ children }) {
     try {
       const freshUser = await fetchCurrentUser();
       setUser(freshUser);
+      bootstrapSessionPromise = Promise.resolve({
+        connected: true,
+        user: freshUser,
+      });
       return freshUser;
     } catch {
       return null;
@@ -249,7 +290,7 @@ export function AuthProvider({ children }) {
         sendPasswordReset,
         completePasswordReset,
         changePassword,
-        getDashboardUrl: () => resolveRedirectUrl(user?.role),
+        getDashboardUrl: () => resolveAccountDashboardUrl(user?.role),
       }}
     >
       {children}

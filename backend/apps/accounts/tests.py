@@ -49,7 +49,7 @@ class CraftifyAuthSecurityTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["user"]["role"], User.Role.BUYER)
         self.assertFalse(response.data["user"]["is_email_verified"])
-        self.assertEqual(response.data["redirect_url"], "/buyer/dashboard")
+        self.assertEqual(response.data["redirect_url"], "/")
         self.assertIn(settings.AUTH_REFRESH_COOKIE_NAME, response.cookies)
 
         # Verification email dispatched

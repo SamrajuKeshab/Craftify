@@ -1,4 +1,4 @@
-import apiClient from './apiClient';
+import apiClient, { refreshAccessToken } from './apiClient';
 
 export async function checkBackendHealth() {
   try {
@@ -10,8 +10,7 @@ export async function checkBackendHealth() {
 }
 
 export async function refreshSessionRequest() {
-  const { data } = await apiClient.post('/auth/token/refresh/', {});
-  return data;
+  return refreshAccessToken();
 }
 
 export async function fetchCurrentUser() {
