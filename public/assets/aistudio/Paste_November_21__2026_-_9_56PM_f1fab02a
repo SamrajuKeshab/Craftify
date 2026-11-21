@@ -1,0 +1,547 @@
+(venv) PS C:\Games\Craftify\backend> python manage.py test     
+Found 15 test(s).
+Creating test database for alias 'default'...
+System check identified no issues (0 silenced).
+[2026-11-21 21:55:52,770] WARNING django.request: Bad Request: /api/v1/auth/login/
+[2026-11-21 21:55:53,571] WARNING django.request: Bad Request: /api/v1/auth/login/
+[2026-11-21 21:55:54,420] WARNING django.request: Bad Request: /api/v1/auth/login/
+[2026-11-21 21:55:55,227] WARNING django.request: Bad Request: /api/v1/auth/login/
+[2026-11-21 21:55:56,131] WARNING django.request: Bad Request: /api/v1/auth/login/
+[2026-11-21 21:55:56,137] WARNING django.request: Bad Request: /api/v1/auth/login/
+.[2026-11-21 21:55:56,952] WARNING django.request: Bad Request: /api/v1/auth/verify-email/
+[2026-11-21 21:55:56,957] WARNING django.request: Bad Request: /api/v1/auth/verify-email/
+..[2026-11-21 21:55:58,050] WARNING django.request: Bad Request: /api/v1/auth/login/
+[2026-11-21 21:55:58,976] WARNING django.request: Bad Request: /api/v1/auth/login/
+[2026-11-21 21:56:00,181] WARNING django.request: Bad Request: /api/v1/auth/login/
+[2026-11-21 21:56:01,387] WARNING django.request: Bad Request: /api/v1/auth/login/
+[2026-11-21 21:56:02,589] WARNING django.request: Bad Request: /api/v1/auth/login/
+[2026-11-21 21:56:02,591] WARNING django.request: Too Many Requests: /api/v1/auth/login/
+...[2026-11-21 21:56:12,296] INFO apps.accounts.services: Dispatched password reset link for user_id=797ecff6-0cf8-4584-a6cd-255912f9b57c
+[2026-11-21 21:56:13,042] WARNING django.request: Unauthorized: /api/v1/auth/token/refresh/
+.[2026-11-21 21:56:13,787] INFO apps.accounts.services: Dispatched email verification link for user_id=e9440ad6-c506-4e0f-a895-8aaaa1207022
+.[2026-11-21 21:56:15,264] WARNING django.request: Unauthorized: /api/v1/auth/token/refresh/
+[2026-11-21 21:56:15,265] WARNING django.request: Unauthorized: /api/v1/auth/me/
+..[2026-11-21 21:56:19,806] WARNING django.request: Bad Request: /api/v1/admin/seller-applications/10705dd2-ea79-48e3-af99-57f514cade42/review/
+.[2026-11-21 21:56:22,035] WARNING django.request: Forbidden: /api/v1/sellers/documents/85b97b90-ee22-4eca-be3c-e183a47ea43f/
+[2026-11-21 21:56:22,077] ERROR django.request: Internal Server Error: /api/v1/admin/seller-applications/214f2b9d-3cc0-4ba4-a304-a72ed92619f2/review/
+Traceback (most recent call last):
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 298, in _cursor
+    return self._prepare_cursor(self.create_cursor(name))
+                                ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\postgresql\base.py", line 429, in create_cursor
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\connection.py", line 244, in cursor
+    self._check_connection_ok()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\_connection_base.py", line 539, in _check_connection_ok
+    raise e.OperationalError("the connection is closed")
+psycopg.OperationalError: the connection is closed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\views\decorators\csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\views\generic\base.py", line 105, in view    return self.dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "C:\Games\Craftify\backend\apps\sellers\views.py", line 240, in post
+    application = review_seller_application(
+        admin_user=request.user,
+    ...<3 lines>...
+        request=request,
+    )
+  File "C:\Users\Samraju Keshab\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 85, in inner
+    return func(*args, **kwds)
+  File "C:\Games\Craftify\backend\apps\sellers\services.py", line 131, in review_seller_application
+    .first()
+     ~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\query.py", line 1106, in first
+    for obj in queryset[:1]:
+               ~~~~~~~~^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\query.py", line 386, in __iter__
+    self._fetch_all()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\query.py", line 1954, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\query.py", line 93, in __iter__    results = compiler.execute_sql(
+        chunked_fetch=self.chunked_fetch, chunk_size=self.chunk_size
+    )
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1621, in execute_sql
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 320, in cursor
+    return self._cursor()
+           ~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 297, in _cursor
+    with self.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 298, in _cursor
+    return self._prepare_cursor(self.create_cursor(name))
+                                ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\postgresql\base.py", line 429, in create_cursor
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\connection.py", line 244, in cursor
+    self._check_connection_ok()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\_connection_base.py", line 539, in _check_connection_ok
+    raise e.OperationalError("the connection is closed")
+django.db.utils.OperationalError: the connection is closed
+EEEE
+======================================================================
+ERROR: test_document_download_rbac_and_seller_suspension_flow (apps.sellers.tests.CraftifySellerOnboardingAndAdminTests.test_document_download_rbac_and_seller_suspension_flow)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 298, in _cursor
+    return self._prepare_cursor(self.create_cursor(name))
+                                ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\postgresql\base.py", line 429, in create_cursor
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\connection.py", line 244, in cursor
+    self._check_connection_ok()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\_connection_base.py", line 539, in _check_connection_ok
+    raise e.OperationalError("the connection is closed")
+psycopg.OperationalError: the connection is closed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Games\Craftify\backend\apps\sellers\tests.py", line 229, in test_document_download_rbac_and_seller_suspension_flow
+    self.client.post(
+    ~~~~~~~~~~~~~~~~^
+        f"/api/v1/admin/seller-applications/{app_id}/review/",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        {"action": "APPROVE"},
+        ^^^^^^^^^^^^^^^^^^^^^^
+        format="json",
+        ^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\test.py", line 299, in post
+    response = super().post(
+        path, data=data, format=format, content_type=content_type, **extra)
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\test.py", line 213, in post
+    return self.generic('POST', path, data, content_type, **extra)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\test.py", line 237, in generic
+    return super().generic(
+           ~~~~~~~~~~~~~~~^
+        method, path, data, content_type, secure, **extra)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\test\client.py", line 671, in generic
+    return self.request(**r)
+           ~~~~~~~~~~~~^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\test.py", line 289, in request
+    return super().request(**kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\test.py", line 241, in request
+    request = super().request(**kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\test\client.py", line 1090, in request
+    self.check_exception(response)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\test\client.py", line 805, in check_exception
+    raise exc_value
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\views\decorators\csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\views\generic\base.py", line 105, in view    return self.dispatch(request, *args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "C:\Games\Craftify\venv\Lib\site-packages\rest_framework\views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "C:\Games\Craftify\backend\apps\sellers\views.py", line 240, in post
+    application = review_seller_application(
+        admin_user=request.user,
+    ...<3 lines>...
+        request=request,
+    )
+  File "C:\Users\Samraju Keshab\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 85, in inner
+    return func(*args, **kwds)
+  File "C:\Games\Craftify\backend\apps\sellers\services.py", line 131, in review_seller_application
+    .first()
+     ~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\query.py", line 1106, in first
+    for obj in queryset[:1]:
+               ~~~~~~~~^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\query.py", line 386, in __iter__
+    self._fetch_all()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\query.py", line 1954, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\query.py", line 93, in __iter__    results = compiler.execute_sql(
+        chunked_fetch=self.chunked_fetch, chunk_size=self.chunk_size
+    )
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1621, in execute_sql
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 320, in cursor
+    return self._cursor()
+           ~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 297, in _cursor
+    with self.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 298, in _cursor
+    return self._prepare_cursor(self.create_cursor(name))
+                                ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\postgresql\base.py", line 429, in create_cursor
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\connection.py", line 244, in cursor
+    self._check_connection_ok()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\_connection_base.py", line 539, in _check_connection_ok
+    raise e.OperationalError("the connection is closed")
+django.db.utils.OperationalError: the connection is closed
+
+======================================================================
+ERROR: test_non_admin_blocked_from_admin_endpoints (apps.sellers.tests.CraftifySellerOnboardingAndAdminTests.test_non_admin_blocked_from_admin_endpoints)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 298, in _cursor
+    return self._prepare_cursor(self.create_cursor(name))
+                                ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\postgresql\base.py", line 429, in create_cursor
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\connection.py", line 244, in cursor
+    self._check_connection_ok()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\_connection_base.py", line 539, in _check_connection_ok
+    raise e.OperationalError("the connection is closed")
+psycopg.OperationalError: the connection is closed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Games\Craftify\backend\apps\sellers\tests.py", line 23, in setUp
+    self.admin = User.objects.create_user(
+                 ~~~~~~~~~~~~~~~~~~~~~~~~^
+        username="craftify_admin",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+        is_email_verified=True,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\contrib\auth\models.py", line 175, in create_user
+    return self._create_user(username, email, password, **extra_fields)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\contrib\auth\models.py", line 163, in _create_user
+    user.save(using=self._db)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\contrib\auth\base_user.py", line 65, in save
+    super().save(*args, **kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 902, in save
+    self.save_base(
+    ~~~~~~~~~~~~~~^
+        using=using,
+        ^^^^^^^^^^^^
+    ...<2 lines>...
+        update_fields=update_fields,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 1008, in save_base
+    updated = self._save_table(
+        raw,
+    ...<4 lines>...
+        update_fields,
+    )
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 1169, in _save_table
+    results = self._do_insert(
+        cls._base_manager, using, fields, returning_fields, raw
+    )
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 1210, in _do_insert
+    return manager._insert(
+           ~~~~~~~~~~~~~~~^
+        [self],
+        ^^^^^^^
+    ...<3 lines>...
+        raw=raw,
+        ^^^^^^^^
+    )
+    ^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\query.py", line 1873, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1880, in execute_sql
+    with self.connection.cursor() as cursor:
+         ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 320, in cursor
+    return self._cursor()
+           ~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 297, in _cursor
+    with self.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 298, in _cursor
+    return self._prepare_cursor(self.create_cursor(name))
+                                ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\postgresql\base.py", line 429, in create_cursor
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\connection.py", line 244, in cursor
+    self._check_connection_ok()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\_connection_base.py", line 539, in _check_connection_ok
+    raise e.OperationalError("the connection is closed")
+django.db.utils.OperationalError: the connection is closed
+
+======================================================================
+ERROR: test_unverified_buyer_cannot_submit_seller_application (apps.sellers.tests.CraftifySellerOnboardingAndAdminTests.test_unverified_buyer_cannot_submit_seller_application)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 298, in _cursor
+    return self._prepare_cursor(self.create_cursor(name))
+                                ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\postgresql\base.py", line 429, in create_cursor
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\connection.py", line 244, in cursor
+    self._check_connection_ok()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\_connection_base.py", line 539, in _check_connection_ok
+    raise e.OperationalError("the connection is closed")
+psycopg.OperationalError: the connection is closed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Games\Craftify\backend\apps\sellers\tests.py", line 23, in setUp
+    self.admin = User.objects.create_user(
+                 ~~~~~~~~~~~~~~~~~~~~~~~~^
+        username="craftify_admin",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+        is_email_verified=True,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\contrib\auth\models.py", line 175, in create_user
+    return self._create_user(username, email, password, **extra_fields)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\contrib\auth\models.py", line 163, in _create_user
+    user.save(using=self._db)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\contrib\auth\base_user.py", line 65, in save
+    super().save(*args, **kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 902, in save
+    self.save_base(
+    ~~~~~~~~~~~~~~^
+        using=using,
+        ^^^^^^^^^^^^
+    ...<2 lines>...
+        update_fields=update_fields,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 1008, in save_base
+    updated = self._save_table(
+        raw,
+    ...<4 lines>...
+        update_fields,
+    )
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 1169, in _save_table
+    results = self._do_insert(
+        cls._base_manager, using, fields, returning_fields, raw
+    )
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 1210, in _do_insert
+    return manager._insert(
+           ~~~~~~~~~~~~~~~^
+        [self],
+        ^^^^^^^
+    ...<3 lines>...
+        raw=raw,
+        ^^^^^^^^
+    )
+    ^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\query.py", line 1873, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1880, in execute_sql
+    with self.connection.cursor() as cursor:
+         ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 320, in cursor
+    return self._cursor()
+           ~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 297, in _cursor
+    with self.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 298, in _cursor
+    return self._prepare_cursor(self.create_cursor(name))
+                                ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\postgresql\base.py", line 429, in create_cursor
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\connection.py", line 244, in cursor
+    self._check_connection_ok()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\_connection_base.py", line 539, in _check_connection_ok
+    raise e.OperationalError("the connection is closed")
+django.db.utils.OperationalError: the connection is closed
+
+======================================================================
+ERROR: test_verified_buyer_applies_with_document_and_duplicate_pending_is_blocked (apps.sellers.tests.CraftifySellerOnboardingAndAdminTests.test_verified_buyer_applies_with_document_and_duplicate_pending_is_blocked)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 298, in _cursor
+    return self._prepare_cursor(self.create_cursor(name))
+                                ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\postgresql\base.py", line 429, in create_cursor
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\connection.py", line 244, in cursor
+    self._check_connection_ok()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\_connection_base.py", line 539, in _check_connection_ok
+    raise e.OperationalError("the connection is closed")
+psycopg.OperationalError: the connection is closed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Games\Craftify\backend\apps\sellers\tests.py", line 23, in setUp
+    self.admin = User.objects.create_user(
+                 ~~~~~~~~~~~~~~~~~~~~~~~~^
+        username="craftify_admin",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<6 lines>...
+        is_email_verified=True,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\contrib\auth\models.py", line 175, in create_user
+    return self._create_user(username, email, password, **extra_fields)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\contrib\auth\models.py", line 163, in _create_user
+    user.save(using=self._db)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\contrib\auth\base_user.py", line 65, in save
+    super().save(*args, **kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 902, in save
+    self.save_base(
+    ~~~~~~~~~~~~~~^
+        using=using,
+        ^^^^^^^^^^^^
+    ...<2 lines>...
+        update_fields=update_fields,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 1008, in save_base
+    updated = self._save_table(
+        raw,
+    ...<4 lines>...
+        update_fields,
+    )
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 1169, in _save_table
+    results = self._do_insert(
+        cls._base_manager, using, fields, returning_fields, raw
+    )
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\base.py", line 1210, in _do_insert
+    return manager._insert(
+           ~~~~~~~~~~~~~~~^
+        [self],
+        ^^^^^^^
+    ...<3 lines>...
+        raw=raw,
+        ^^^^^^^^
+    )
+    ^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\query.py", line 1873, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1880, in execute_sql
+    with self.connection.cursor() as cursor:
+         ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 320, in cursor
+    return self._cursor()
+           ~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 297, in _cursor
+    with self.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\base\base.py", line 298, in _cursor
+    return self._prepare_cursor(self.create_cursor(name))
+                                ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\utils\asyncio.py", line 26, in inner
+    return func(*args, **kwargs)
+  File "C:\Games\Craftify\venv\Lib\site-packages\django\db\backends\postgresql\base.py", line 429, in create_cursor
+    cursor = self.connection.cursor()
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\connection.py", line 244, in cursor
+    self._check_connection_ok()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Games\Craftify\venv\Lib\site-packages\psycopg\_connection_base.py", line 539, in _check_connection_ok
+    raise e.OperationalError("the connection is closed")
+django.db.utils.OperationalError: the connection is closed
+
+----------------------------------------------------------------------
+Ran 15 tests in 33.247s
+
+FAILED (errors=4)
+Destroying test database for alias 'default'...
+(venv) PS C:\Games\Craftify\backend> 

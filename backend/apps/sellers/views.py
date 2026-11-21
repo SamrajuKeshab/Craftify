@@ -1,9 +1,11 @@
 """API views for Seller Onboarding, Shop Management, and Admin Governance."""
+import mimetypes
 import os
+import re
 
 from django.conf import settings
 from django.db.models import Q
-from django.http import FileResponse, Http404
+from django.http import Http404, HttpResponse
 from rest_framework import permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -146,12 +148,19 @@ class VerificationDocumentDownloadView(APIView):
         if not resolved_path.startswith(media_root + os.sep) or not os.path.isfile(resolved_path):
             raise Http404("Document file not available.")
 
-        safe_name = os.path.basename(doc.original_filename or os.path.basename(resolved_path))
-        return FileResponse(
-            open(resolved_path, "rb"),
-            as_attachment=True,
-            filename=safe_name,
+        raw_name = os.path.basename(doc.original_filename or os.path.basename(resolved_path))
+        safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", raw_name) or "document"
+        content_type, _ = mimetypes.guess_type(safe_name)
+        with open(resolved_path, "rb") as file_handle:
+            file_bytes = file_handle.read()
+
+        response = HttpResponse(
+            file_bytes,
+            content_type=content_type or "application/octet-stream",
         )
+        response["Content-Disposition"] = f'attachment; filename="{safe_name}"'
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
 
 
 # ---------------------------------------------------------------------------

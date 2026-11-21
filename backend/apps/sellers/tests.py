@@ -224,7 +224,8 @@ class CraftifySellerOnboardingAndAdminTests(APITestCase):
         self.client.force_authenticate(user=self.admin)
         allowed = self.client.get(f"/api/v1/sellers/documents/{doc_id}/")
         self.assertEqual(allowed.status_code, status.HTTP_200_OK)
-        allowed.close()
+        self.assertEqual(allowed["X-Content-Type-Options"], "nosniff")
+        self.assertTrue(allowed.content.startswith(b"\x89PNG"))
 
         self.client.post(
             f"/api/v1/admin/seller-applications/{app_id}/review/",
