@@ -28,6 +28,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import AccountSecurityPanel from '../components/dashboards/AccountSecurityPanel';
 import DashboardShell from '../components/dashboards/DashboardShell';
 import { useCart } from '../context/CartContext';
 import { ADMIN_DASHBOARD_DATA, POPULAR_CATEGORIES } from '../data/craftifyData';
@@ -605,10 +606,10 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Remaining Admin Sections (Orders / Buyers / Payments / Reports / Settings) */}
-      {['buyers', 'orders', 'payments', 'reports', 'settings'].includes(
-        activeTab
-      ) && (
+      {activeTab === 'settings' && <AccountSecurityPanel />}
+
+      {/* Remaining Admin Sections (Orders / Buyers / Payments / Reports) */}
+      {['buyers', 'orders', 'payments', 'reports'].includes(activeTab) && (
         <div className="rounded-xl bg-white border border-slate-200/80 p-6">
           <h2 className="text-lg font-bold text-slate-900 capitalize">
             Admin {activeTab} Management

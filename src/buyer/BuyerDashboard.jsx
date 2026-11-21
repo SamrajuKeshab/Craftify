@@ -2,13 +2,16 @@ import {
   Heart,
   MapPin,
   Package,
+  Shield,
   ShoppingBag,
   Store,
   Truck,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import AccountSecurityPanel from '../components/dashboards/AccountSecurityPanel';
 import DashboardShell from '../components/dashboards/DashboardShell';
+import EmailVerificationBanner from '../components/dashboards/EmailVerificationBanner';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { FEATURED_PRODUCTS } from '../data/craftifyData';
@@ -23,6 +26,7 @@ export default function BuyerDashboard() {
     { id: 'orders', label: 'My Orders', icon: Package, badge: placedOrders.length },
     { id: 'wishlist', label: 'Wishlist', icon: Heart, badge: wishlistIds.length },
     { id: 'addresses', label: 'Addresses', icon: MapPin },
+    { id: 'security', label: 'Security', icon: Shield },
   ];
 
   const wishlistedProducts = FEATURED_PRODUCTS.filter((p) =>
@@ -55,6 +59,7 @@ export default function BuyerDashboard() {
         </div>
       }
     >
+      <EmailVerificationBanner />
       {activeTab === 'orders' && (
         <div className="space-y-4">
           <h2 className="text-base font-bold text-slate-900">
@@ -182,6 +187,8 @@ export default function BuyerDashboard() {
           </div>
         </div>
       )}
+
+      {activeTab === 'security' && <AccountSecurityPanel />}
     </DashboardShell>
   );
 }

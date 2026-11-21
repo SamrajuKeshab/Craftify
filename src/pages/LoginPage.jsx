@@ -1,16 +1,19 @@
+import { CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import CraftifyLogo from '../components/common/CraftifyLogo';
 import { useAuth } from '../context/AuthContext';
 
 /**
  * Craftify Login Page — Strictly follows Master Spec Part 4.4:
- * Displays ONLY Username, Password, Login button, and "Don't have an account? Sign Up".
- * Zero role selectors or seller/admin/buyer login options.
+ * Displays ONLY Username, Password, Login button, and "Don't have an account? Sign Up"
+ * (plus a quiet password recovery link). Zero role selectors or role-specific login buttons.
  */
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const flashMessage = location.state?.message || '';
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -44,6 +47,16 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {flashMessage && !error && (
+          <div
+            role="status"
+            className="mb-5 flex items-start gap-2 rounded-lg bg-[#EDF4EE] border border-[#D4E6D8] px-4 py-3 text-xs font-medium text-[#355E44]"
+          >
+            <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>{flashMessage}</span>
+          </div>
+        )}
+
         {error && (
           <div
             role="alert"
@@ -75,12 +88,20 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label
-              htmlFor="login-password"
-              className="block text-xs font-semibold text-[#4A3B31] mb-1.5"
-            >
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label
+                htmlFor="login-password"
+                className="block text-xs font-semibold text-[#4A3B31]"
+              >
+                Password
+              </label>
+              <Link
+                to="/forgot-password"
+                className="text-xs font-medium text-[#8B4B28] hover:text-[#733C1E] hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <input
               id="login-password"
               name="password"

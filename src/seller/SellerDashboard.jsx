@@ -21,7 +21,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import AccountSecurityPanel from '../components/dashboards/AccountSecurityPanel';
 import DashboardShell from '../components/dashboards/DashboardShell';
+import EmailVerificationBanner from '../components/dashboards/EmailVerificationBanner';
 import { useCart } from '../context/CartContext';
 import { SELLER_DASHBOARD_DATA } from '../data/craftifyData';
 import { formatINR, formatINRCompact } from '../utils/formatters';
@@ -110,6 +112,7 @@ export default function SellerDashboard() {
         </div>
       }
     >
+      <EmailVerificationBanner />
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
           {/* 4 Seller KPI Cards */}
@@ -470,7 +473,9 @@ export default function SellerDashboard() {
         </div>
       )}
 
-      {['shop', 'earnings', 'reviews', 'settings'].includes(activeTab) && (
+      {activeTab === 'settings' && <AccountSecurityPanel />}
+
+      {['shop', 'earnings', 'reviews'].includes(activeTab) && (
         <div className="rounded-xl bg-white border border-slate-200/80 p-6">
           <h2 className="text-lg font-bold text-slate-900 capitalize">
             Seller {activeTab}

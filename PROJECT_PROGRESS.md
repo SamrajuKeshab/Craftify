@@ -2,9 +2,9 @@
 
 > **Purpose:** Living tracker for both the project owner (in VS Code / GitHub) and AI sessions. Read this file at the start of every new work session and update it after every completed module.
 
-**Last Updated:** 2026-11-20  
-**Current Milestone:** Milestone 1 Completed (Documentation Blueprints + React `.jsx` & Django Starter Foundation)  
-**Next Module:** Week 3 — Full Authentication, Email Verification, Password Reset & Rate Limiting
+**Last Updated:** 2026-11-21  
+**Current Milestone:** Week 3 Implemented (Full Authentication, Email Verification, Password Recovery, Lockout & Session Management)  
+**Next Module:** Week 4 — Admin Panel & Seller Onboarding (`SellerApplication`, Verification Docs, Approval & Role Promotion APIs)
 
 ---
 
@@ -19,21 +19,21 @@
 | **Commission Model** | Category-based commission percentages (Admin-configurable per category, snapshotted onto every `SellerSuborder` / `OrderItem`). |
 | **Payments** | **Razorpay Prepaid** (HMAC signature + idempotent webhook verification) + **Cash on Delivery (COD)** (default cap: ₹5,000). |
 | **Shipping & Returns** | Free shipping on orders **≥ ₹999** (₹79 standard below ₹999). **7-day return window** post-delivery (personalized/made-to-order items returnable only if damaged/defective/wrong). |
-| **Strict Auth UI** | `/login` shows **only** Username, Password, Login button, and `"Don't have an account? Sign Up"` (no role buttons). `/sign-up` always creates a `BUYER` account. Backend resolves authoritative role redirect (`/admin/dashboard`, `/seller/dashboard`, `/buyer/dashboard`). |
+| **Auth & Token Security** | `/login` shows **only** Username, Password, Forgot Password link, Login button, and Sign Up link (zero role buttons). `/sign-up` always creates a `BUYER`. Short-lived JWT access token stored strictly in JS memory + rotating refresh token in `HttpOnly` cookie (via Vite `/api` same-origin proxy in dev). 5-failure/15-min lockout + DRF rate throttling. |
 | **Visual Design System** | Warm parchment storefront & cart (`#FAF6F0`, terracotta `#8B4B28`, Fraunces serif + Plus Jakarta Sans + JetBrains Mono) paired with dark charcoal-slate sidebar dashboards (`#242B33` + teal `#2E9A90` active state + `#F6F7F9` workspace). |
 
 ---
 
 ## 2. 12-Week Incremental Module Tracker
 
-> **Module Completion Rule (Part 23):** A module is only marked `[x] Done` once Backend models/migrations, API endpoints, Permissions, Frontend integration, and Automated Tests are all verified.
+> **Module Completion Rule (Part 23):** A module is only marked **Done** once Backend models/migrations, API endpoints, Permissions, Frontend integration, and Automated Tests are all verified.
 
 | Week | Module | Backend | Frontend | Tests Verified | Overall Status |
 | :---: | :--- | :---: | :---: | :---: | :--- |
 | **1** | SRS, Architecture, ERD, API Docs & UI/UX Blueprint | N/A | N/A | Reviewed | **Done** |
-| **2** | React (`.jsx`), Django 5 & PostgreSQL Starter Setup | Starter Ready | Starter Ready | Build + Lint OK *(Run Django tests in VS Code)* | **Done (Starter)** |
-| **3** | Full Auth (JWT Rotation, Email Verification, Password Reset, Rate Limiting) | Partial (`register`, `login`, `logout`, `me`) | Wired to `/api/v1/auth/` | Starter tests written | **Next Up** |
-| **4** | Admin Panel & Seller Onboarding (`SellerApplication`, Verification Docs, Approval) | Not Started | UI Shell / Preview State | Not Started | Pending |
+| **2** | React (`.jsx`), Django 5 & PostgreSQL Starter Setup | Live & Verified | Live & Verified | Verified Locally in VS Code | **Done** |
+| **3** | Full Auth (In-Memory JWT + `HttpOnly` Refresh, Email Verification, Password Reset/Change, Brute-Force Lockout, Logout-All) | Implemented | Implemented | Frontend Build/Lint OK *(Run `manage.py test` after pull)* | **Ready to Verify in VS Code** |
+| **4** | Admin Panel & Seller Onboarding (`SellerApplication`, Verification Docs, Approval) | Not Started | UI Shell / Preview State | Not Started | **Next Up** |
 | **5** | Categories (with Commission %) & Product Management + Admin Moderation | Not Started | UI Shell / Preview State | Not Started | Pending |
 | **6** | Customer Shopping Storefront (Live Search, Filters, Sorting, PDP) | Not Started | UI Preview Ready | Not Started | Pending |
 | **7** | Cart, Wishlist, Coupons & Buyer Addresses | Not Started | UI Preview Ready | Not Started | Pending |
@@ -47,82 +47,52 @@
 
 ## 3. Honest Reality Check: Live Backend vs. Preview State
 
-To avoid any confusion while developing incrementally:
-
-### Implemented & Ready for Live Django Connection
+### Implemented & Ready for Live Django Connection (Weeks 2–3)
 - `GET /api/v1/health/` — Database & service health verification.
-- `POST /api/v1/auth/register/` — Public registration forcing `role="BUYER"` (even if payload tampers with `role`).
-- `POST /api/v1/auth/login/` — Username + password authentication returning SimpleJWT `access`, `refresh`, `user`, and DB-resolved `redirect_url`.
-- `POST /api/v1/auth/token/refresh/` — Rotating refresh tokens.
-- `POST /api/v1/auth/logout/` — Blacklists refresh token.
-- `GET/PATCH /api/v1/auth/me/` — Authenticated profile endpoint (role read-only).
-- `python manage.py create_initial_admin` — Secure CLI admin creation with zero hardcoded credentials.
-- React `AuthContext` + `apiClient` automatically detects if `http://127.0.0.1:8000/api/v1/health/` is reachable and switches seamlessly to real Django JWT auth.
+- `POST /api/v1/auth/register/` — Public Buyer-only registration + dispatches hashed 24h email verification link + sets `HttpOnly` refresh cookie.
+- `POST /api/v1/auth/verify-email/` & `POST /api/v1/auth/resend-verification/` — Single-use SHA-256 verification flow (throttled `5/hour`).
+- `POST /api/v1/auth/login/` — Username + password login with 5-failure/15-min lockout, DRF throttling (`5/minute`), suspended account blocking, `HttpOnly` refresh cookie, and DB-resolved `redirect_url`.
+- `POST /api/v1/auth/token/refresh/` — Rotates `HttpOnly` refresh cookie, blacklists old token, enforces `is_active`, and returns fresh in-memory access token.
+- `POST /api/v1/auth/password/reset/` & `/password/reset/confirm/` — Anti-enumeration reset request + 30-min single-use hashed token confirmation that revokes all existing sessions.
+- `POST /api/v1/auth/password/change/` — Verifies current password, updates hash, revokes other active sessions.
+- `POST /api/v1/auth/logout/` & `POST /api/v1/auth/logout-all/` — Single-session and all-device refresh token revocation.
+- `GET/PATCH /api/v1/auth/me/` — Authenticated user profile (role read-only).
+- Frontend pages & controls: `/login`, `/sign-up`, `/verify-email`, `/forgot-password`, `/reset-password`, dashboard `EmailVerificationBanner`, and shared `AccountSecurityPanel` across Buyer, Seller, and Admin settings.
 
-### Currently Running on Local Starter Data (Not Yet Backed by PostgreSQL)
-- Storefront product catalog & categories (`src/data/craftifyData.js`) — will move to `apps/categories` & `apps/products` in Weeks 5–6.
-- Cart, wishlist, coupon validation & multi-vendor checkout (`src/context/CartContext.jsx`) — will move to `apps/cart`, `apps/coupons`, `apps/orders`, `apps/payments` in Weeks 7–8.
-- Admin & Seller dashboard KPIs, Recharts series, and moderation button states — will move to real PostgreSQL aggregations & APIs in Weeks 4, 9, 10, 11.
-- Become a Seller application form — will move to `apps/sellers` in Week 4.
-
----
-
-## 4. Created Files Inventory (Milestone 1)
-
-### Documentation (`docs/` & root)
-- `README.md` — GitHub ↔ VS Code dual-terminal local workflow guide
-- `PROJECT_PROGRESS.md` — This living progress tracker
-- `docs/01_SRS_AND_REQUIREMENTS.md` — SRS, FR/NFR, user stories, Indian compliance, open decisions
-- `docs/02_SYSTEM_ARCHITECTURE_AND_WORKFLOWS.md` — Architecture, Mermaid workflows, folder trees, ADRs
-- `docs/03_DATABASE_ERD_AND_SCHEMA.md` — Full Mermaid ERD, table specs, constraints, locking policy
-- `docs/04_API_SPEC_AND_PERMISSIONS.md` — Complete `/api/v1/` plan, JSON examples, RBAC matrix
-- `docs/05_SECURITY_TESTING_DEPLOYMENT_ROADMAP.md` — OWASP security, testing, deployment, 12-week roadmap
-
-### Django Backend (`backend/`)
-- `backend/manage.py`, `backend/.env.example`, `backend/README.md`
-- `backend/requirements/{base.txt, dev.txt, prod.txt}`
-- `backend/config/{urls.py, wsgi.py, asgi.py}` & `backend/config/settings/{base.py, dev.py, prod.py}`
-- `backend/common/{models.py, permissions.py, pagination.py, views.py}`
-- `backend/apps/accounts/{apps.py, models.py, serializers.py, views.py, urls.py, admin.py, tests.py}`
-- `backend/apps/accounts/management/commands/create_initial_admin.py`
-
-### React Frontend (`src/` & root)
-- `index.html`, `metadata.json`, `.env.example`, `.gitignore`, `src/index.css`
-- `src/main.jsx`, `src/App.jsx`, `src/routes/ProtectedRoute.jsx`
-- `src/services/{apiClient.js, authService.js}`, `src/utils/formatters.js`, `src/data/craftifyData.js`
-- `src/context/{AuthContext.jsx, CartContext.jsx}`
-- `src/components/common/{CraftifyLogo.jsx, ToastBanner.jsx}`
-- `src/components/storefront/{StorefrontNavbar.jsx, ProductDetailModal.jsx}`
-- `src/components/dashboards/DashboardShell.jsx`
-- `src/pages/{StorefrontPage.jsx, CartPage.jsx, LoginPage.jsx, SignUpPage.jsx, BecomeSellerPage.jsx}`
-- `src/admin/AdminDashboard.jsx`, `src/seller/SellerDashboard.jsx`, `src/buyer/BuyerDashboard.jsx`
-- `src/assets/images/*` — 8 generated Indian craft photographs (hero + 7 craft categories/products)
+### Currently Running on Local Starter Data (Upcoming Weeks 4–11)
+- Seller applications, verification documents & Admin approval mutations (`apps/sellers` — **Week 4**).
+- Categories with commission % & Product upload/moderation (`apps/categories`, `apps/products` — **Weeks 5–6**).
+- Persistent Cart, Wishlist, Coupons & Buyer Addresses (`apps/cart`, `apps/coupons` — **Week 7**).
+- Multi-vendor order splitting, inventory locking, Razorpay HMAC/webhook & COD (`apps/orders`, `apps/payments` — **Week 8**).
+- Shipping, tracking events, 7-day returns & financial ledger/payouts (`apps/shipping`, `apps/finance` — **Weeks 9–10**).
 
 ---
 
-## 5. VS Code Local Verification Checklist (Your Action Before Week 3)
+## 4. VS Code Local Verification Checklist (Week 3)
 
-Run these commands after pulling from GitHub in VS Code and check each box once verified:
+After pushing to GitHub and running `git pull origin main` in VS Code:
 
-- [ ] `git pull origin main` succeeds cleanly in VS Code
-- [ ] PostgreSQL database `craftify_db` created (or `USE_SQLITE_FALLBACK=True` set temporarily in `backend/.env`)
-- [ ] `cd backend` → virtual environment activated → `pip install -r requirements/dev.txt`
-- [ ] `python manage.py makemigrations accounts && python manage.py migrate` succeeds
-- [ ] `python manage.py create_initial_admin` creates your Admin account
-- [ ] `python manage.py test` passes all 4 starter auth/security tests
-- [ ] `python manage.py runserver` serves `http://127.0.0.1:8000/api/v1/health/` returning `200 OK`
-- [ ] Root terminal: `npm install && npm run dev` opens Craftify on `http://localhost:3000`
-- [ ] Logging in via `/login` with your newly created Admin credentials redirects automatically to `/admin/dashboard`
+- [ ] Ensure your local root `.env` has `VITE_API_BASE_URL="/api/v1"` (uses the new Vite `/api` proxy so `HttpOnly` cookies stay same-origin)
+- [ ] Ensure `backend/.env` has `FRONTEND_URL=http://localhost:3000` (keep your real local `DB_PASSWORD` only in `backend/.env`, never `backend/.env.example`)
+- [ ] Run migrations for the new `User` lockout fields & `AuthActionToken` model:
+  ```bash
+  cd backend
+  python manage.py makemigrations accounts
+  python manage.py migrate
+  ```
+- [ ] Run the expanded Week 3 security test suite (7 test cases):
+  ```bash
+  python manage.py test
+  ```
+- [ ] Start Django (`python manage.py runserver`) and React (`npm run dev`), then test:
+  - Sign up a new Buyer → copy the `/verify-email?token=...` link printed in your VS Code Django terminal → open it in your browser → confirm `Email Verified`.
+  - Reload the browser (`F5`) → confirm you stay logged in via the silent `HttpOnly` refresh cookie (and `localStorage` contains zero JWTs).
+  - Test `/forgot-password` → copy `/reset-password?token=...` from the Django terminal → set a new password → log in with the new password.
+  - Test **Settings → Change Password** and **Sign Out All Devices** inside your dashboard.
 
 ---
 
-## 6. Known Issues & Notes
-- **Environment Variable Prompt**: AI Studio's preview prompts for variables listed in root `.env.example` (`VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1`, `VITE_RAZORPAY_KEY_ID=rzp_test_demo12345` until Week 8).
-- **Migrations Not Pre-Generated**: Because Django runs locally in VS Code (not inside the Node preview container), always run `python manage.py makemigrations <app> && python manage.py migrate` locally after pulling new Django models.
+## 5. How to Start the Next Session / Module
 
----
-
-## 7. How to Start the Next Session / Module
-
-When you're ready to build the next module, simply tell the AI:
-> *"Check `PROJECT_PROGRESS.md` and let's start Week 3 (Full Authentication: email verification, password reset, account suspension checks, and auth tests)."*
+Once Week 3 tests pass in VS Code, tell the AI:
+> *"Check `PROJECT_PROGRESS.md` — Week 3 tests passed in VS Code. Let's start Week 4 (Seller Onboarding, Verification Documents & Admin Approval APIs)."*

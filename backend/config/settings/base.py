@@ -105,8 +105,10 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.ScopedRateThrottle",
     ),
     "DEFAULT_THROTTLE_RATES": {
-        "login": "10/minute",
+        "login": "5/minute",
         "register": "10/hour",
+        "password_reset": "5/hour",
+        "email_verification": "5/hour",
     },
 }
 
@@ -120,6 +122,16 @@ SIMPLE_JWT = {
     "ALGORITHM": "HS256",
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+# Week 3 Auth Security & Cookie Settings
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@craftify.in")
+AUTH_REFRESH_COOKIE_NAME = "craftify_refresh"
+AUTH_REFRESH_COOKIE_SAMESITE = "Lax"
+AUTH_LOCKOUT_THRESHOLD = 5
+AUTH_LOCKOUT_MINUTES = 15
+AUTH_EMAIL_VERIFY_EXPIRY_HOURS = 24
+AUTH_PASSWORD_RESET_EXPIRY_MINUTES = 30
 
 # Craftify Marketplace Business Defaults (INR ₹)
 CRAFTIFY_CURRENCY = "INR"
