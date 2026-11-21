@@ -16,6 +16,9 @@ import {
 
 const AuthContext = createContext(null);
 
+const BACKEND_OFFLINE_MSG =
+  'Cannot reach the Craftify Django server. Make sure Django is running (`python manage.py runserver`) and try again.';
+
 function resolveRedirectUrl(role) {
   if (role === 'ADMIN') return '/admin/dashboard';
   if (role === 'SELLER') return '/seller/dashboard';
@@ -23,8 +26,12 @@ function resolveRedirectUrl(role) {
 }
 
 function extractApiError(err, fallback) {
-  const data = err?.response?.data;
-  if (!data) return fallback;
+  // Network error or proxy 502/504 when Django runserver is turned off
+  if (!err?.response || err.response.status === 502 || err.response.status === 504) {
+    return BACKEND_OFFLINE_MSG;
+  }
+  const data = err.response.data;
+  if (!data || typeof data === 'string') return fallback;
   if (typeof data.detail === 'string') return data.detail;
   if (Array.isArray(data.non_field_errors) && data.non_field_errors[0]) {
     return data.non_field_errors[0];
@@ -40,7 +47,7 @@ export function AuthProvider({ children }) {
   const [backendConnected, setBackendConnected] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // On mount: detect local Django backend and silently hydrate session via HttpOnly refresh cookie
+  // On mount: check real Django backend and silently hydrate session via HttpOnly refresh cookie
   useEffect(() => {
     let active = true;
     async function initAuth() {
@@ -58,6 +65,9 @@ export function AuthProvider({ children }) {
           clearAccessToken();
           if (active) setUser(null);
         }
+      } else {
+        clearAccessToken();
+        setUser(null);
       }
       if (active) setAuthLoading(false);
     }
@@ -67,53 +77,32 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  /**
+   * Real Django Login — fails cleanly if Django backend is offline (never fakes login).
+   */
   const login = async ({ username, password }) => {
     const trimmedUser = username.trim();
     if (!trimmedUser || !password) {
       throw new Error('Please enter both username and password.');
     }
 
-    if (backendConnected) {
-      try {
-        const data = await loginRequest({ username: trimmedUser, password });
-        setAccessToken(data.access);
-        setUser(data.user);
-        return {
-          user: data.user,
-          redirectUrl: data.redirect_url || resolveRedirectUrl(data.user.role),
-        };
-      } catch (err) {
-        throw new Error(extractApiError(err, 'Invalid username or password.'));
-      }
+    try {
+      const data = await loginRequest({ username: trimmedUser, password });
+      setBackendConnected(true);
+      setAccessToken(data.access);
+      setUser(data.user);
+      return {
+        user: data.user,
+        redirectUrl: data.redirect_url || resolveRedirectUrl(data.user.role),
+      };
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Invalid username or password.'));
     }
-
-    // Standalone preview fallback (when running without local Django)
-    const lower = trimmedUser.toLowerCase();
-    let role = 'BUYER';
-    let fullName = trimmedUser;
-    if (lower === 'admin' || lower === 'craftify_admin') {
-      role = 'ADMIN';
-      fullName = 'Craftify Admin';
-    } else if (lower === 'seller' || lower === 'artistic_creations') {
-      role = 'SELLER';
-      fullName = 'Artistic Creations';
-    }
-
-    const previewUser = {
-      id: `preview-${lower}`,
-      username: trimmedUser,
-      full_name: fullName,
-      email: `${lower}@craftify.in`,
-      role,
-      is_email_verified: role !== 'BUYER',
-    };
-    setUser(previewUser);
-    return {
-      user: previewUser,
-      redirectUrl: resolveRedirectUrl(role),
-    };
   };
 
+  /**
+   * Real Django Public Sign-Up — always requires live Django + PostgreSQL (never fakes registration).
+   */
   const register = async ({ fullName, username, email, password, confirmPassword }) => {
     if (password !== confirmPassword) {
       throw new Error('Passwords do not match.');
@@ -122,58 +111,39 @@ export function AuthProvider({ children }) {
       throw new Error('Password must be at least 8 characters long.');
     }
 
-    if (backendConnected) {
-      try {
-        const data = await registerRequest({
-          fullName,
-          username,
-          email,
-          password,
-          confirmPassword,
-        });
-        setAccessToken(data.access);
-        setUser(data.user);
-        return {
-          user: data.user,
-          redirectUrl: data.redirect_url || '/buyer/dashboard',
-        };
-      } catch (err) {
-        throw new Error(
-          extractApiError(err, 'Registration failed. Please check your details.')
-        );
-      }
+    try {
+      const data = await registerRequest({
+        fullName,
+        username,
+        email,
+        password,
+        confirmPassword,
+      });
+      setBackendConnected(true);
+      setAccessToken(data.access);
+      setUser(data.user);
+      return {
+        user: data.user,
+        redirectUrl: data.redirect_url || '/buyer/dashboard',
+      };
+    } catch (err) {
+      throw new Error(
+        extractApiError(err, 'Registration failed. Please check your details.')
+      );
     }
-
-    const previewBuyer = {
-      id: `preview-${username.trim().toLowerCase()}`,
-      username: username.trim(),
-      full_name: fullName.trim(),
-      email: email.trim().toLowerCase(),
-      role: 'BUYER',
-      is_email_verified: false,
-    };
-    setUser(previewBuyer);
-    return {
-      user: previewBuyer,
-      redirectUrl: '/buyer/dashboard',
-    };
   };
 
   const logout = async () => {
-    if (backendConnected) {
-      await logoutRequest();
-    }
+    await logoutRequest();
     clearAccessToken();
     setUser(null);
   };
 
   const logoutAll = async () => {
-    if (backendConnected) {
-      try {
-        await logoutAllRequest();
-      } catch (err) {
-        throw new Error(extractApiError(err, 'Could not revoke active sessions.'));
-      }
+    try {
+      await logoutAllRequest();
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Could not revoke active sessions.'));
     }
     clearAccessToken();
     setUser(null);
@@ -183,51 +153,35 @@ export function AuthProvider({ children }) {
     if (!token) {
       throw new Error('Verification token is missing.');
     }
-    if (backendConnected) {
-      try {
-        const data = await verifyEmailRequest(token);
-        if (data.user) {
-          setUser((prev) => (prev ? { ...prev, is_email_verified: true } : data.user));
-        }
-        return data;
-      } catch (err) {
-        throw new Error(
-          extractApiError(err, 'This verification link is invalid or has expired.')
-        );
+    try {
+      const data = await verifyEmailRequest(token);
+      if (data.user) {
+        setUser((prev) => (prev ? { ...prev, is_email_verified: true } : data.user));
       }
+      return data;
+    } catch (err) {
+      throw new Error(
+        extractApiError(err, 'This verification link is invalid or has expired.')
+      );
     }
-    setUser((prev) => (prev ? { ...prev, is_email_verified: true } : prev));
-    return { message: 'Email verified successfully in preview mode.' };
   };
 
   const resendVerification = async () => {
-    if (backendConnected) {
-      try {
-        return await resendVerificationRequest();
-      } catch (err) {
-        throw new Error(
-          extractApiError(err, 'Unable to resend verification email right now.')
-        );
-      }
+    try {
+      return await resendVerificationRequest();
+    } catch (err) {
+      throw new Error(
+        extractApiError(err, 'Unable to resend verification email right now.')
+      );
     }
-    return {
-      message:
-        'Verification link ready—connect your local Django server in VS Code to view the email link in your terminal.',
-    };
   };
 
   const sendPasswordReset = async (email) => {
-    if (backendConnected) {
-      try {
-        return await requestPasswordReset(email);
-      } catch (err) {
-        throw new Error(extractApiError(err, 'Unable to send reset request right now.'));
-      }
+    try {
+      return await requestPasswordReset(email);
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Unable to send reset request right now.'));
     }
-    return {
-      message:
-        'If an account exists for that email address, a password reset link has been sent.',
-    };
   };
 
   const completePasswordReset = async ({ token, newPassword, confirmPassword }) => {
@@ -237,16 +191,13 @@ export function AuthProvider({ children }) {
     if (newPassword.length < 8) {
       throw new Error('Password must be at least 8 characters long.');
     }
-    if (backendConnected) {
-      try {
-        return await confirmPasswordReset({ token, newPassword, confirmPassword });
-      } catch (err) {
-        throw new Error(
-          extractApiError(err, 'This password reset link is invalid or has expired.')
-        );
-      }
+    try {
+      return await confirmPasswordReset({ token, newPassword, confirmPassword });
+    } catch (err) {
+      throw new Error(
+        extractApiError(err, 'This password reset link is invalid or has expired.')
+      );
     }
-    return { message: 'Password reset successful. Please sign in with your new password.' };
   };
 
   const changePassword = async ({ currentPassword, newPassword, confirmPassword }) => {
@@ -256,54 +207,19 @@ export function AuthProvider({ children }) {
     if (newPassword.length < 8) {
       throw new Error('New password must be at least 8 characters long.');
     }
-    if (backendConnected) {
-      try {
-        const data = await changePasswordRequest({
-          currentPassword,
-          newPassword,
-          confirmPassword,
-        });
-        if (data.access) {
-          setAccessToken(data.access);
-        }
-        return data;
-      } catch (err) {
-        throw new Error(extractApiError(err, 'Unable to update password.'));
+    try {
+      const data = await changePasswordRequest({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+      if (data.access) {
+        setAccessToken(data.access);
       }
+      return data;
+    } catch (err) {
+      throw new Error(extractApiError(err, 'Unable to update password.'));
     }
-    return { message: 'Password updated successfully.' };
-  };
-
-  const enterPreviewRole = (role) => {
-    const presets = {
-      ADMIN: {
-        id: 'preview-admin',
-        username: 'admin',
-        full_name: 'Craftify Admin',
-        email: 'admin@craftify.in',
-        role: 'ADMIN',
-        is_email_verified: true,
-      },
-      SELLER: {
-        id: 'preview-seller',
-        username: 'artistic_creations',
-        full_name: 'Artistic Creations',
-        email: 'studio@craftify.in',
-        role: 'SELLER',
-        is_email_verified: true,
-      },
-      BUYER: {
-        id: 'preview-buyer',
-        username: 'priya_sharma',
-        full_name: 'Priya Sharma',
-        email: 'priya@craftify.in',
-        role: 'BUYER',
-        is_email_verified: false,
-      },
-    };
-    const selected = presets[role] || presets.BUYER;
-    setUser(selected);
-    return resolveRedirectUrl(selected.role);
   };
 
   return (
@@ -321,7 +237,6 @@ export function AuthProvider({ children }) {
         sendPasswordReset,
         completePasswordReset,
         changePassword,
-        enterPreviewRole,
         getDashboardUrl: () => resolveRedirectUrl(user?.role),
       }}
     >

@@ -3,7 +3,7 @@
 > **Purpose:** Living tracker for both the project owner (in VS Code / GitHub) and AI sessions. Read this file at the start of every new work session and update it after every completed module.
 
 **Last Updated:** 2026-11-21  
-**Current Milestone:** Week 3 Implemented (Full Authentication, Email Verification, Password Recovery, Lockout & Session Management)  
+**Current Milestone:** Week 3 Completed & Verified (9/9 Django Auth & Security Tests Passing in VS Code)  
 **Next Module:** Week 4 — Admin Panel & Seller Onboarding (`SellerApplication`, Verification Docs, Approval & Role Promotion APIs)
 
 ---
@@ -32,7 +32,7 @@
 | :---: | :--- | :---: | :---: | :---: | :--- |
 | **1** | SRS, Architecture, ERD, API Docs & UI/UX Blueprint | N/A | N/A | Reviewed | **Done** |
 | **2** | React (`.jsx`), Django 5 & PostgreSQL Starter Setup | Live & Verified | Live & Verified | Verified Locally in VS Code | **Done** |
-| **3** | Full Auth (In-Memory JWT + `HttpOnly` Refresh, Email Verification, Password Reset/Change, Brute-Force Lockout, Logout-All) | Implemented | Implemented | Frontend Build/Lint OK *(Run `manage.py test` after pull)* | **Ready to Verify in VS Code** |
+| **3** | Full Auth (In-Memory JWT + `HttpOnly` Refresh, Email Verification, Password Reset/Change, Brute-Force Lockout, Logout-All) | Live & Verified | Live & Verified | 9/9 Django Tests OK + Build/Lint OK | **Done** |
 | **4** | Admin Panel & Seller Onboarding (`SellerApplication`, Verification Docs, Approval) | Not Started | UI Shell / Preview State | Not Started | **Next Up** |
 | **5** | Categories (with Commission %) & Product Management + Admin Moderation | Not Started | UI Shell / Preview State | Not Started | Pending |
 | **6** | Customer Shopping Storefront (Live Search, Filters, Sorting, PDP) | Not Started | UI Preview Ready | Not Started | Pending |
@@ -58,8 +58,9 @@
 - `POST /api/v1/auth/logout/` & `POST /api/v1/auth/logout-all/` — Single-session and all-device refresh token revocation.
 - `GET/PATCH /api/v1/auth/me/` — Authenticated user profile (role read-only).
 - Frontend pages & controls: `/login`, `/sign-up`, `/verify-email`, `/forgot-password`, `/reset-password`, dashboard `EmailVerificationBanner`, and shared `AccountSecurityPanel` across Buyer, Seller, and Admin settings.
+- **Strict Live Auth & Clean Dashboards Enforced**: Removed all offline preview auth fallbacks (`/login` and `/sign-up` strictly require the running Django backend and show a clear connection error if Django is stopped) and removed fake default orders, cart items, wishlists, addresses, and revenue figures from Buyer, Seller, and Admin dashboards (all dashboards now display honest `₹0` / empty states until their respective backend modules are built).
 
-### Currently Running on Local Starter Data (Upcoming Weeks 4–11)
+### Currently Running on Empty/Starter States (Upcoming Weeks 4–11)
 - Seller applications, verification documents & Admin approval mutations (`apps/sellers` — **Week 4**).
 - Categories with commission % & Product upload/moderation (`apps/categories`, `apps/products` — **Weeks 5–6**).
 - Persistent Cart, Wishlist, Coupons & Buyer Addresses (`apps/cart`, `apps/coupons` — **Week 7**).

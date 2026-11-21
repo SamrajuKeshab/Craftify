@@ -8,7 +8,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import ProductDetailModal from '../components/storefront/ProductDetailModal';
 import StorefrontNavbar from '../components/storefront/StorefrontNavbar';
 import { useAuth } from '../context/AuthContext';
@@ -22,8 +22,7 @@ import { formatINR } from '../utils/formatters';
 
 export default function StorefrontPage() {
   const { addToCart, toggleWishlist, wishlistIds } = useCart();
-  const { enterPreviewRole } = useAuth();
-  const navigate = useNavigate();
+  const { user, getDashboardUrl } = useAuth();
 
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,11 +51,6 @@ export default function StorefrontPage() {
     }
     return list;
   }, [selectedCategory, searchQuery, sortBy]);
-
-  const openPanelPreview = (role) => {
-    const path = enterPreviewRole(role);
-    navigate(path);
-  };
 
   return (
     <div className="min-h-screen bg-[#FAF6F0] text-[#2C2018] flex flex-col">
@@ -434,34 +428,41 @@ export default function StorefrontPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-medium text-[#524338]">
-            <span className="text-[#8C7B6E]">Explore Role Panels:</span>
-            <button
-              type="button"
-              onClick={() => openPanelPreview('BUYER')}
-              className="hover:text-[#8B4B28] underline-offset-4 hover:underline"
-            >
-              Buyer Dashboard
-            </button>
-            <button
-              type="button"
-              onClick={() => openPanelPreview('SELLER')}
-              className="hover:text-[#8B4B28] underline-offset-4 hover:underline"
-            >
-              Seller Dashboard
-            </button>
-            <button
-              type="button"
-              onClick={() => openPanelPreview('ADMIN')}
-              className="hover:text-[#8B4B28] underline-offset-4 hover:underline"
-            >
-              Admin Dashboard
-            </button>
             <Link
-              to="/login"
+              to="/become-seller"
               className="hover:text-[#8B4B28] underline-offset-4 hover:underline"
             >
-              Login
+              Become a Seller
             </Link>
+            <Link
+              to="/cart"
+              className="hover:text-[#8B4B28] underline-offset-4 hover:underline"
+            >
+              Your Cart
+            </Link>
+            {user ? (
+              <Link
+                to={getDashboardUrl()}
+                className="font-semibold text-[#8B4B28] underline-offset-4 hover:underline"
+              >
+                Open Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="hover:text-[#8B4B28] underline-offset-4 hover:underline"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/sign-up"
+                  className="hover:text-[#8B4B28] underline-offset-4 hover:underline"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </footer>

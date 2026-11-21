@@ -1,38 +1,15 @@
 import { createContext, useContext, useMemo, useState } from 'react';
-import { ACTIVE_COUPONS, INITIAL_CART_ITEMS } from '../data/craftifyData';
+import { ACTIVE_COUPONS } from '../data/craftifyData';
 import { FREE_SHIPPING_THRESHOLD, STANDARD_SHIPPING_FEE } from '../utils/formatters';
 
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
-  const [items, setItems] = useState(INITIAL_CART_ITEMS);
-  const [wishlistIds, setWishlistIds] = useState(['prod-101', 'prod-104']);
+  // Start clean with zero fake pre-populated cart items, wishlist items, or orders
+  const [items, setItems] = useState([]);
+  const [wishlistIds, setWishlistIds] = useState([]);
   const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const [placedOrders, setPlacedOrders] = useState([
-    {
-      id: '#ORD1234',
-      date: '20 Nov 2026',
-      paymentMethod: 'Razorpay',
-      total: 2698,
-      status: 'Processing',
-      suborders: [
-        {
-          code: 'ORD1234-S1',
-          seller: 'Artistic Creations',
-          item: 'Hand Painted Ceramic Vase × 1',
-          status: 'Processing',
-          tracking: 'Preparing kiln-safe packaging',
-        },
-        {
-          code: 'ORD1234-S2',
-          seller: 'Kala Knot Studio',
-          item: 'Macrame Wall Hanging × 1',
-          status: 'Shipped',
-          tracking: 'DLVRY-9102441 (Delhivery)',
-        },
-      ],
-    },
-  ]);
+  const [placedOrders, setPlacedOrders] = useState([]);
   const [toastMessage, setToastMessage] = useState('');
 
   const showToast = (msg) => {
@@ -144,7 +121,6 @@ export function CartProvider({ children }) {
 
   const placeOrder = ({ address, paymentMethod }) => {
     const orderNum = `#ORD${Math.floor(1235 + Math.random() * 700)}`;
-    // Group cart items by seller to demonstrate multi-vendor suborder splitting
     const bySeller = items.reduce((acc, entry) => {
       const seller = entry.product.sellerName;
       if (!acc[seller]) acc[seller] = [];
@@ -164,7 +140,11 @@ export function CartProvider({ children }) {
 
     const newOrder = {
       id: orderNum,
-      date: '20 Nov 2026',
+      date: new Date().toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
       paymentMethod,
       address,
       total,
@@ -175,7 +155,7 @@ export function CartProvider({ children }) {
     setPlacedOrders((prev) => [newOrder, ...prev]);
     setItems([]);
     setAppliedCoupon(null);
-    showToast(`Order ${orderNum} confirmed across ${suborders.length} artisan studio(s)`);
+    showToast(`Order ${orderNum} created across ${suborders.length} artisan studio(s)`);
     return newOrder;
   };
 

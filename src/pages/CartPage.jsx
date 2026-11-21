@@ -35,7 +35,7 @@ export default function CartPage() {
     removeCoupon,
     placeOrder,
   } = useCart();
-  const { user, enterPreviewRole } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [couponInput, setCouponInput] = useState('');
@@ -43,12 +43,12 @@ export default function CartPage() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('RAZORPAY');
   const [address, setAddress] = useState({
-    fullName: user?.full_name || 'Priya Sharma',
-    phone: '9876543210',
-    line1: '42, Indiranagar 100 Feet Road',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    pincode: '560038',
+    fullName: user?.full_name || '',
+    phone: user?.phone || '',
+    line1: '',
+    city: '',
+    state: '',
+    pincode: '',
   });
   const [confirmedOrder, setConfirmedOrder] = useState(null);
 
@@ -145,12 +145,11 @@ export default function CartPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (!user) enterPreviewRole('BUYER');
-                      navigate('/buyer/dashboard');
+                      navigate(user ? '/buyer/dashboard' : '/login');
                     }}
                     className="rounded-lg bg-[#8B4B28] px-4 py-2 text-xs font-semibold text-white hover:bg-[#733C1E]"
                   >
-                    Track in Buyer Dashboard
+                    {user ? 'Track in Buyer Dashboard' : 'Login to Track Order'}
                   </button>
                   <Link
                     to="/"
@@ -420,6 +419,7 @@ export default function CartPage() {
                     required
                     value={address.fullName}
                     onChange={(e) => setAddress({ ...address, fullName: e.target.value })}
+                    placeholder="Full name"
                     className="w-full rounded-lg border border-[#E2D8CB] px-3 py-2 text-sm focus:outline-none focus:border-[#8B4B28]"
                   />
                 </div>
@@ -431,6 +431,7 @@ export default function CartPage() {
                     required
                     value={address.phone}
                     onChange={(e) => setAddress({ ...address, phone: e.target.value })}
+                    placeholder="10-digit mobile number"
                     className="w-full rounded-lg border border-[#E2D8CB] px-3 py-2 text-sm focus:outline-none focus:border-[#8B4B28]"
                   />
                 </div>
@@ -444,6 +445,7 @@ export default function CartPage() {
                   required
                   value={address.line1}
                   onChange={(e) => setAddress({ ...address, line1: e.target.value })}
+                  placeholder="House/Flat no., Street, Locality"
                   className="w-full rounded-lg border border-[#E2D8CB] px-3 py-2 text-sm focus:outline-none focus:border-[#8B4B28]"
                 />
               </div>
@@ -457,6 +459,7 @@ export default function CartPage() {
                     required
                     value={address.city}
                     onChange={(e) => setAddress({ ...address, city: e.target.value })}
+                    placeholder="City"
                     className="w-full rounded-lg border border-[#E2D8CB] px-3 py-2 text-sm focus:outline-none focus:border-[#8B4B28]"
                   />
                 </div>
@@ -468,6 +471,7 @@ export default function CartPage() {
                     required
                     value={address.state}
                     onChange={(e) => setAddress({ ...address, state: e.target.value })}
+                    placeholder="State"
                     className="w-full rounded-lg border border-[#E2D8CB] px-3 py-2 text-sm focus:outline-none focus:border-[#8B4B28]"
                   />
                 </div>
@@ -480,6 +484,7 @@ export default function CartPage() {
                     pattern="[0-9]{6}"
                     value={address.pincode}
                     onChange={(e) => setAddress({ ...address, pincode: e.target.value })}
+                    placeholder="6-digit PIN"
                     className="w-full rounded-lg border border-[#E2D8CB] px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#8B4B28]"
                   />
                 </div>
