@@ -2,16 +2,17 @@
 import hashlib
 import hmac
 import json
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import override_settings
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.catalog.models import Category, Inventory, InventoryTransaction, Product, ProductVariant
 from apps.commerce.models import BuyerAddress, Coupon, CouponUsage
-from apps.orders.models import Order, Payment, PaymentTransaction, SellerSuborder
+from apps.orders.models import Order, PaymentTransaction, SellerSuborder
 from apps.sellers.models import SellerProfile
 
 User = get_user_model()
@@ -85,13 +86,13 @@ class MultiVendorOrdersAndPaymentsTestCase(APITestCase):
         self.cat_pottery = Category.objects.create(
             name="Pottery & Clay",
             slug="pottery-clay",
-            commission_percentage=Decimal("10.00"),
+            commission_rate=Decimal("10.00"),
             is_active=True,
         )
         self.cat_textile = Category.objects.create(
             name="Handloom Textiles",
             slug="handloom-textiles",
-            commission_percentage=Decimal("12.00"),
+            commission_rate=Decimal("12.00"),
             is_active=True,
         )
 
@@ -104,13 +105,12 @@ class MultiVendorOrdersAndPaymentsTestCase(APITestCase):
             description="Authentic Jaipur blue pottery.",
             base_price=Decimal("1200.00"),
             approval_status=Product.ApprovalStatus.APPROVED,
-            is_active=True,
         )
         self.variant_a = ProductVariant.objects.create(
             product=self.product_a,
             sku="JTG-VASE-01",
-            title="Standard 10-inch",
-            price=Decimal("1200.00"),
+            label="Standard 10-inch",
+            price_override=Decimal("1200.00"),
             is_active=True,
         )
         self.inv_a = Inventory.objects.create(
@@ -128,13 +128,12 @@ class MultiVendorOrdersAndPaymentsTestCase(APITestCase):
             description="Handwoven kala cotton stole.",
             base_price=Decimal("800.00"),
             approval_status=Product.ApprovalStatus.APPROVED,
-            is_active=True,
         )
         self.variant_b = ProductVariant.objects.create(
             product=self.product_b,
             sku="KHC-STOLE-01",
-            title="Indigo Natural Dye",
-            price=Decimal("800.00"),
+            label="Indigo Natural Dye",
+            price_override=Decimal("800.00"),
             is_active=True,
         )
         self.inv_b = Inventory.objects.create(
@@ -152,13 +151,12 @@ class MultiVendorOrdersAndPaymentsTestCase(APITestCase):
             description="Double ikat heirloom saree.",
             base_price=Decimal("6500.00"),
             approval_status=Product.ApprovalStatus.APPROVED,
-            is_active=True,
         )
         self.variant_exp = ProductVariant.objects.create(
             product=self.product_expensive,
             sku="KHC-SAREE-01",
-            title="6.2m with Blouse",
-            price=Decimal("6500.00"),
+            label="6.2m with Blouse",
+            price_override=Decimal("6500.00"),
             is_active=True,
         )
         self.inv_exp = Inventory.objects.create(
@@ -169,7 +167,7 @@ class MultiVendorOrdersAndPaymentsTestCase(APITestCase):
 
         self.address = BuyerAddress.objects.create(
             user=self.buyer,
-            label=BuyerAddress.Label.HOME,
+            label=BuyerAddress.AddressLabel.HOME,
             recipient_name="Meera Deshmukh",
             phone="9876543210",
             line1="42 FC Road, Shivajinagar",
@@ -179,15 +177,19 @@ class MultiVendorOrdersAndPaymentsTestCase(APITestCase):
             is_default=True,
         )
 
+        now = timezone.now()
         self.coupon = Coupon.objects.create(
             code="CRAFT200",
             description="Flat ₹200 off orders above ₹1,500",
-            discount_type=Coupon.DiscountType.FLAT,
-            discount_value=Decimal("200.00"),
+            discount_type=Coupon.DiscountType.FIXED,
+            value=Decimal("200.00"),
             min_order_amount=Decimal("1500.00"),
-            usage_limit=50,
+            valid_from=now - timedelta(days=1),
+            valid_until=now + timedelta(days=30),
+            max_uses=50,
             per_user_limit=2,
             is_active=True,
+            created_by=self.admin,
         )
 
     def _add_to_cart(self, variant, quantity=1, note=""):
@@ -233,15 +235,17 @@ class MultiVendorOrdersAndPaymentsTestCase(APITestCase):
         self.assertEqual(Decimal(order_data["total_amount"]), Decimal("1800.00"))
         self.assertEqual(len(order_data["suborders"]), 2)
 
-        # Verify zero-paise-drift proportional discount + category commission rates
+        # Verify zero-paise-drift proportional discount + category commission on discounted net
         by_shop = {s["seller_shop_name_snapshot"]: s for s in order_data["suborders"]}
         sub_a = by_shop["Jaipur Terracotta Guild"]
         sub_b = by_shop["Kutch Handloom Co"]
         self.assertEqual(Decimal(sub_a["discount_share"]), Decimal("120.00"))
         self.assertEqual(Decimal(sub_b["discount_share"]), Decimal("80.00"))
-        # 10% of 1200 = 120; 12% of 800 = 96
-        self.assertEqual(Decimal(sub_a["commission_amount"]), Decimal("120.00"))
-        self.assertEqual(Decimal(sub_b["commission_amount"]), Decimal("96.00"))
+        # 10% of (1200 - 120 = 1080) = 108.00; 12% of (800 - 80 = 720) = 86.40
+        self.assertEqual(Decimal(sub_a["commission_amount"]), Decimal("108.00"))
+        self.assertEqual(Decimal(sub_b["commission_amount"]), Decimal("86.40"))
+        self.assertEqual(Decimal(sub_a["net_seller_amount"]), Decimal("972.00"))
+        self.assertEqual(Decimal(sub_b["net_seller_amount"]), Decimal("633.60"))
 
         # Verify inventory deducted & logged
         self.inv_a.refresh_from_db()
@@ -307,7 +311,6 @@ class MultiVendorOrdersAndPaymentsTestCase(APITestCase):
         self.assertEqual(self.inv_a.quantity_available, 1)
         self.assertEqual(Order.objects.count(), 0)
 
-    @override_settings()
     @patch.dict(
         "os.environ",
         {
@@ -320,9 +323,10 @@ class MultiVendorOrdersAndPaymentsTestCase(APITestCase):
     def test_razorpay_checkout_hmac_verification_and_tamper_rejection(self, mock_create_rzp):
         """Razorpay checkout reserves stock, rejects tampered HMAC, and confirms on valid HMAC."""
         mock_create_rzp.return_value = {
-            "id": "order_RzpUnit001",
-            "amount": 120000,
+            "razorpay_order_id": "order_RzpUnit001",
+            "amount_paise": 120000,
             "currency": "INR",
+            "key_id": "rzp_test_unit123",
         }
         self._add_to_cart(self.variant_a, quantity=1)
 
@@ -390,9 +394,10 @@ class MultiVendorOrdersAndPaymentsTestCase(APITestCase):
     def test_razorpay_webhook_signature_and_idempotency(self, mock_create_rzp):
         """Webhook rejects bad signature and processes payment.captured idempotently on replay."""
         mock_create_rzp.return_value = {
-            "id": "order_RzpHook002",
-            "amount": 87900,
+            "razorpay_order_id": "order_RzpHook002",
+            "amount_paise": 87900,
             "currency": "INR",
+            "key_id": "rzp_test_unit123",
         }
         self._add_to_cart(self.variant_b, quantity=1)
         res = self.client.post(
