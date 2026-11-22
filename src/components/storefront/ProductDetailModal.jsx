@@ -54,16 +54,24 @@ export default function ProductDetailModal({ product, onClose }) {
   const outOfStock = displayStock <= 0;
   const isWishlisted = wishlistIds.includes(product.id);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (outOfStock) return;
-    addToCart({ ...product, price: displayPrice }, selectedVariant);
+    await addToCart(product, selectedVariant, {
+      variantId: selectedVariantObj?.id || null,
+      quantity: 1,
+    });
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (outOfStock) return;
-    addToCart({ ...product, price: displayPrice }, selectedVariant);
-    onClose();
-    navigate('/cart');
+    const res = await addToCart(product, selectedVariant, {
+      variantId: selectedVariantObj?.id || null,
+      quantity: 1,
+    });
+    if (res?.ok) {
+      onClose();
+      navigate('/cart');
+    }
   };
 
   return (

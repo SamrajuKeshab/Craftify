@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "apps.audit.apps.AuditConfig",
     "apps.sellers.apps.SellersConfig",
     "apps.catalog.apps.CatalogConfig",
+    "apps.commerce.apps.CommerceConfig",
 ]
 
 MIDDLEWARE = [

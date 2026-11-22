@@ -34,6 +34,8 @@ export default function ProductDetailPage() {
   const [activeImageUrl, setActiveImageUrl] = useState('');
   const [selectedVariant, setSelectedVariant] = useState('Standard');
   const [quantity, setQuantity] = useState(1);
+  const [customizationNote, setCustomizationNote] = useState('');
+  const [addingToCart, setAddingToCart] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -48,6 +50,7 @@ export default function ProductDetailPage() {
         setActiveImageUrl(normalized.image || normalized.images?.[0]?.image_url || '');
         setSelectedVariant(normalized.variants?.[0] || 'Standard');
         setQuantity(1);
+        setCustomizationNote('');
         setRelatedProducts(
           (data.related_products || []).map(normalizeStorefrontProduct).filter(Boolean)
         );
@@ -153,19 +156,35 @@ export default function ProductDetailPage() {
     setQuantity(1);
   };
 
-  const handleAddToCart = () => {
-    if (outOfStock) return;
-    for (let i = 0; i < quantity; i += 1) {
-      addToCart({ ...product, price: displayPrice }, selectedVariant);
+  const handleAddToCart = async () => {
+    if (outOfStock || addingToCart) return;
+    setAddingToCart(true);
+    try {
+      await addToCart(product, selectedVariant, {
+        variantId: selectedVariantObj?.id || null,
+        quantity,
+        customizationNote: product.customizable ? customizationNote : '',
+      });
+    } finally {
+      setAddingToCart(false);
     }
   };
 
-  const handleBuyNow = () => {
-    if (outOfStock) return;
-    for (let i = 0; i < quantity; i += 1) {
-      addToCart({ ...product, price: displayPrice }, selectedVariant);
+  const handleBuyNow = async () => {
+    if (outOfStock || addingToCart) return;
+    setAddingToCart(true);
+    try {
+      const res = await addToCart(product, selectedVariant, {
+        variantId: selectedVariantObj?.id || null,
+        quantity,
+        customizationNote: product.customizable ? customizationNote : '',
+      });
+      if (res?.ok) {
+        navigate('/cart');
+      }
+    } finally {
+      setAddingToCart(false);
     }
-    navigate('/cart');
   };
 
   return (
@@ -371,18 +390,42 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
+              {!outOfStock && product.customizable && (
+                <div>
+                  <label
+                    htmlFor="pdp-custom-note"
+                    className="block text-xs font-semibold text-[#4A3B31] mb-1.5"
+                  >
+                    Personalization Note for Artisan (optional)
+                  </label>
+                  <input
+                    id="pdp-custom-note"
+                    type="text"
+                    maxLength={300}
+                    value={customizationNote}
+                    onChange={(e) => setCustomizationNote(e.target.value)}
+                    placeholder="e.g., Engrave initials 'A.K.' or preferred glaze shade"
+                    className="w-full rounded-lg border border-[#E2D8CB] bg-[#FAF6F0]/70 px-3.5 py-2 text-sm text-[#2C2018] placeholder:text-[#9B8B7E] focus:outline-none focus:border-[#8B4B28] focus:bg-white transition-colors"
+                  />
+                </div>
+              )}
+
               <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
                 <button
                   type="button"
-                  disabled={outOfStock}
+                  disabled={outOfStock || addingToCart}
                   onClick={handleAddToCart}
                   className="flex-1 rounded-lg bg-[#8B4B28] px-6 py-3 text-sm font-semibold text-white hover:bg-[#733C1E] disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                 >
-                  {outOfStock ? 'Out of Stock' : 'Add to Cart'}
+                  {outOfStock
+                    ? 'Out of Stock'
+                    : addingToCart
+                    ? 'Adding...'
+                    : 'Add to Cart'}
                 </button>
                 <button
                   type="button"
-                  disabled={outOfStock}
+                  disabled={outOfStock || addingToCart}
                   onClick={handleBuyNow}
                   className="flex-1 rounded-lg border border-[#8B4B28] bg-white px-6 py-3 text-sm font-semibold text-[#8B4B28] hover:bg-[#FAF6F0] disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                 >

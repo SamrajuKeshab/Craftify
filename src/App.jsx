@@ -21,8 +21,8 @@ import SellerDashboard from './seller/SellerDashboard';
 export default function App() {
   return (
     <AuthProvider>
-      <CartProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <CartProvider>
           <Routes>
             {/* Public Customer Storefront, Product Detail, Artisan Studios & Cart */}
             <Route path="/" element={<StorefrontPage />} />
@@ -68,8 +68,8 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <ToastBanner />
-        </BrowserRouter>
-      </CartProvider>
+        </CartProvider>
+      </BrowserRouter>
     </AuthProvider>
   );
 }

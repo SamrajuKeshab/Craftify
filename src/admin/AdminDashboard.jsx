@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   ShoppingCart,
   Store,
+  Tag,
   Users,
   Wallet,
   XCircle,
@@ -48,8 +49,10 @@ import {
   toggleSellerSuspend,
   toggleUserActive,
 } from '../services/sellerService';
+import { fetchAdminCoupons } from '../services/commerceService';
 import { formatINR, formatINRCompact } from '../utils/formatters';
 import AdminCategoriesTab from './AdminCategoriesTab';
+import AdminCouponsTab from './AdminCouponsTab';
 import AdminProductsTab from './AdminProductsTab';
 
 const EMPTY_ADMIN_SERIES = [
@@ -82,6 +85,8 @@ export default function AdminDashboard() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [productStatusFilter, setProductStatusFilter] = useState('PENDING');
+  const [coupons, setCoupons] = useState([]);
+  const [couponStatusFilter, setCouponStatusFilter] = useState('ALL');
 
   const [loading, setLoading] = useState(false);
   const [actionBusyId, setActionBusyId] = useState(null);
@@ -202,6 +207,27 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadAdminCoupons = async (
+    statusFilter = couponStatusFilter,
+    search = searchTerm
+  ) => {
+    setLoading(true);
+    try {
+      const data = await fetchAdminCoupons({
+        status: statusFilter === 'ALL' ? '' : statusFilter,
+        search,
+      });
+      setCoupons(data.results || []);
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: extractServiceError(err, 'Failed to load platform coupons.'),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboardOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -220,11 +246,20 @@ export default function AdminDashboard() {
       loadCategories(searchTerm);
     } else if (activeTab === 'products') {
       loadAdminProducts(productStatusFilter, searchTerm);
+    } else if (activeTab === 'coupons') {
+      loadAdminCoupons(couponStatusFilter, searchTerm);
     } else if (activeTab === 'audit') {
       loadAuditLogs();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, sellersSubTab, appStatusFilter, productStatusFilter, searchTerm]);
+  }, [
+    activeTab,
+    sellersSubTab,
+    appStatusFilter,
+    productStatusFilter,
+    couponStatusFilter,
+    searchTerm,
+  ]);
 
   const handleReviewApplication = async (appId, action) => {
     const notes = (reviewNotesMap[appId] || '').trim();
@@ -318,6 +353,7 @@ export default function AdminDashboard() {
       badge: pendingProductCount || undefined,
     },
     { id: 'categories', label: 'Categories', icon: FolderTree },
+    { id: 'coupons', label: 'Coupons', icon: Tag },
     { id: 'orders', label: 'Orders', icon: ShoppingCart },
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'audit', label: 'Audit Logs', icon: ScrollText },
@@ -380,6 +416,8 @@ export default function AdminDashboard() {
                 loadCategories();
               } else if (activeTab === 'products') {
                 loadAdminProducts();
+              } else if (activeTab === 'coupons') {
+                loadAdminCoupons();
               } else if (activeTab === 'buyers') {
                 loadBuyersDirectory();
               } else if (activeTab === 'audit') {
@@ -1081,6 +1119,23 @@ export default function AdminDashboard() {
             await Promise.all([
               loadDashboardOverview(),
               loadAdminProducts(productStatusFilter, searchTerm),
+            ]);
+          }}
+          onFeedback={setFeedback}
+        />
+      )}
+
+      {/* TAB 7: LIVE PLATFORM COUPONS (WEEK 7) */}
+      {activeTab === 'coupons' && (
+        <AdminCouponsTab
+          coupons={coupons}
+          statusFilter={couponStatusFilter}
+          onStatusFilterChange={setCouponStatusFilter}
+          loading={loading}
+          onRefresh={async () => {
+            await Promise.all([
+              loadDashboardOverview(),
+              loadAdminCoupons(couponStatusFilter, searchTerm),
             ]);
           }}
           onFeedback={setFeedback}

@@ -14,6 +14,16 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const flashMessage = location.state?.message || '';
+  const rawFrom =
+    typeof location.state?.from === 'string'
+      ? location.state.from
+      : typeof location.state?.from?.pathname === 'string'
+      ? `${location.state.from.pathname}${location.state.from.search || ''}`
+      : '';
+  const safeReturnTo =
+    rawFrom.startsWith('/') && !rawFrom.startsWith('//') && rawFrom !== '/login'
+      ? rawFrom
+      : '';
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -25,8 +35,16 @@ export default function LoginPage() {
     setError('');
     setSubmitting(true);
     try {
-      const { redirectUrl } = await login({ username, password });
-      navigate(redirectUrl, { replace: true });
+      const { user: signedInUser, redirectUrl } = await login({ username, password });
+      const targetUrl =
+        safeReturnTo &&
+        (signedInUser?.role === 'BUYER' ||
+          safeReturnTo.startsWith('/products/') ||
+          safeReturnTo.startsWith('/shops/') ||
+          safeReturnTo.startsWith('/cart'))
+          ? safeReturnTo
+          : redirectUrl;
+      navigate(targetUrl, { replace: true });
     } catch (err) {
       setError(err.message || 'Invalid username or password.');
     } finally {

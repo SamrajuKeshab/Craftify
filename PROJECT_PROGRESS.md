@@ -2,9 +2,9 @@
 
 > **Purpose:** Living tracker for both the project owner (in VS Code / GitHub) and AI sessions. Read this file at the start of every new work session and update it after every completed module.
 
-**Last Updated:** 2026-11-21  
-**Current Milestone:** Week 6 Implemented & Ready for VS Code Verification (Dedicated Product Detail Page, Advanced Price/Craft Filters & Pagination, Artisan Studios Directory & Dedicated Seller Studio Storefronts)  
-**Next Module:** Week 7 — Persistent Cart, Wishlist, Coupons & Buyer Addresses
+**Last Updated:** 2026-11-22  
+**Current Milestone:** Week 7 Implemented & Ready for VS Code Verification (Persistent PostgreSQL Cart, Wishlist, Admin-Managed Platform Coupons & Indian Buyer Address Book with Login-Gated Cart/Wishlist Actions)  
+**Next Module:** Week 8 — Multi-Vendor Order Splitting, Stock Locking, Razorpay & COD
 
 ---
 
@@ -17,6 +17,7 @@
 | **Backend Stack** | Python 3.11+, Django 5, Django REST Framework, SimpleJWT, PostgreSQL 15+ (`DecimalField` for all money), Cloudinary (server-side media uploads via `backend/.env`). |
 | **Currency & Market** | India — Indian Rupee (**INR ₹**) formatted with `en-IN` lakh grouping (e.g., `₹2,45,000`). |
 | **Commission Model** | Category-based commission percentages (`0.00%–50.00%`, Admin-configurable per category, snapshotted onto every `SellerSuborder` / `OrderItem`). Zero pre-seeded categories — Admin creates categories manually. |
+| **Cart, Wishlist & Coupons** | Login required before adding items to Cart or saving to Wishlist (auto-redirects back after sign-in). Platform discount coupons start at zero and are created/managed by Admin in the Admin Dashboard with server-side validation & AuditLog trail. |
 | **Payments** | **Razorpay Prepaid** (HMAC signature + idempotent webhook verification) + **Cash on Delivery (COD)** (default cap: ₹5,000). |
 | **Shipping & Returns** | Free shipping on orders **≥ ₹999** (₹79 standard below ₹999). **7-day return window** post-delivery (personalized/made-to-order items returnable only if damaged/defective/wrong). |
 | **Auth & Token Security** | `/login` shows **only** Username, Password, Forgot Password link, Login button, and Sign Up link (zero role buttons). `/sign-up` always creates a `BUYER` and redirects to `/` (Home Page). Short-lived JWT access token stored strictly in JS memory + rotating refresh token in `HttpOnly` cookie (via Vite `/api` same-origin proxy in dev). 5-failure/15-min lockout + DRF rate throttling. |
@@ -35,9 +36,9 @@
 | **3** | Full Auth (In-Memory JWT + `HttpOnly` Refresh, Email Verification, Password Reset/Change, Brute-Force Lockout, Logout-All) | Live & Verified | Live & Verified | 9/9 Django Tests OK + Build/Lint OK | **Done** |
 | **4** | Admin Panel & Seller Onboarding (`SellerApplication`, Verification Docs, Approval, `SellerProfile`, `AuditLog`) | Live & Verified | Live & Verified | 15/15 Django Tests OK + Build/Lint OK | **Done** |
 | **5** | Categories (with Commission %), Seller Products + Variants + Cloudinary Images & Admin Moderation | Live & Verified | Live & Verified | Verified Locally in VS Code | **Done** |
-| **6** | Customer Shopping Storefront (Dedicated PDP `/products/:slug`, Price/Craft Filters & Pagination, Artisan Studios `/shops` & `/shops/:slug`) | Live (No New Migration Needed) | Live & Wired | Build/Lint OK — Run `python manage.py test` in VS Code | **Ready to Verify** |
-| **7** | Persistent Cart, Wishlist, Coupons & Buyer Addresses | Not Started | Client Cart Ready | Not Started | **Next Up** |
-| **8** | Multi-Vendor Order Splitting, Stock Locking, Razorpay & COD | Not Started | Empty State Ready | Not Started | Pending |
+| **6** | Customer Shopping Storefront (Dedicated PDP `/products/:slug`, Price/Craft Filters & Pagination, Artisan Studios `/shops` & `/shops/:slug`) | Live & Verified | Live & Verified | Verified Locally in VS Code | **Done** |
+| **7** | Persistent Cart, Wishlist, Admin Platform Coupons & Buyer Indian Address Book (`apps/commerce`) | Live (Run `makemigrations commerce` + `migrate`) | Live & Wired | Build/Lint OK — Run `python manage.py test` in VS Code | **Ready to Verify** |
+| **8** | Multi-Vendor Order Splitting, Stock Locking, Razorpay & COD | Not Started | Checkout Review Ready | Not Started | **Next Up** |
 | **9** | Shipping, Courier Tracking, Shipment Events & 7-Day Returns | Not Started | Empty State Ready | Not Started | Pending |
 | **10** | Financial Ledger, Category Commissions, Refunds & Seller Payouts | Not Started | Empty State Ready | Not Started | Pending |
 | **11** | Verified Reviews, Notifications & Real DB Analytics Charts | Not Started | Baseline Charts Ready | Not Started | Pending |
@@ -47,40 +48,52 @@
 
 ## 3. Honest Reality Check: Live Backend vs. Upcoming Modules
 
-### Implemented & Connected to Live Django + PostgreSQL (Weeks 2–6)
+### Implemented & Connected to Live Django + PostgreSQL (Weeks 2–7)
 - **Auth & Security (`apps/accounts`)**: `/register/`, `/verify-email/`, `/resend-verification/`, `/login/`, `/token/refresh/` (`HttpOnly` cookie with single-flight client mutex), `/logout/`, `/logout-all/`, `/password/reset/`, `/password/reset/confirm/`, `/password/change/`, `/me/`.
 - **Seller Onboarding & Admin Governance (`apps/sellers`, `apps/audit`)**:
   - `POST /api/v1/sellers/apply/`, `GET /api/v1/sellers/application-status/`, `GET/PATCH /api/v1/sellers/shop/`, `GET /api/v1/sellers/documents/<uuid>/`.
   - `GET /api/v1/admin/dashboard/`, `GET /api/v1/admin/seller-applications/`, `POST /api/v1/admin/seller-applications/<uuid>/review/`, `GET /api/v1/admin/sellers/`, `POST /api/v1/admin/sellers/<uuid>/toggle-suspend/`, `GET /api/v1/admin/buyers/`, `POST /api/v1/admin/users/<uuid>/toggle-active/`, `GET /api/v1/admin/audit-logs/`.
 - **Catalog, Cloudinary Media, Moderation & Customer Storefront (`apps/catalog`)**:
-  - **Public Storefront Discovery**: `GET /api/v1/categories/`, `GET /api/v1/products/` (supports `category`, `seller`, `search`, `min_price`, `max_price`, `in_stock`, `customizable`, `made_to_order`, `one_of_a_kind`, `ordering`, `page`, `page_size`), `GET /api/v1/products/<slug>/` (includes `related_products`), `GET /api/v1/shops/`, `GET /api/v1/shops/<slug>/` (strictly public studio fields only — zero KYC/bank exposure).
+  - **Public Storefront Discovery**: `GET /api/v1/categories/`, `GET /api/v1/products/`, `GET /api/v1/products/<slug>/`, `GET /api/v1/shops/`, `GET /api/v1/shops/<slug>/`.
   - **Admin Categories & Moderation**: `GET/POST /api/v1/admin/categories/`, `PATCH/DELETE /api/v1/admin/categories/<uuid>/`, `GET /api/v1/admin/products/`, `POST /api/v1/admin/products/<uuid>/moderate/`.
   - **Seller Products & Cloudinary Uploads**: `GET/POST /api/v1/seller/products/`, `GET/PATCH/DELETE /api/v1/seller/products/<uuid>/`, `POST /api/v1/seller/products/<uuid>/images/`, `PATCH/DELETE /api/v1/seller/products/<uuid>/images/<uuid>/`.
+- **Persistent Cart, Wishlist, Platform Coupons & Buyer Addresses (`apps/commerce`)**:
+  - **Buyer Addresses**: `GET/POST /api/v1/buyer/addresses/`, `PATCH/DELETE /api/v1/buyer/addresses/<uuid>/`, `POST /api/v1/buyer/addresses/<uuid>/set-default/`.
+  - **Persistent Cart & Coupons**: `GET/DELETE /api/v1/cart/`, `POST /api/v1/cart/items/`, `PATCH/DELETE /api/v1/cart/items/<uuid>/`, `POST /api/v1/cart/apply-coupon/`, `DELETE /api/v1/cart/coupon/`, `POST /api/v1/coupons/validate/`.
+  - **Persistent Wishlist**: `GET/POST /api/v1/wishlist/`, `POST /api/v1/wishlist/toggle/`, `DELETE /api/v1/wishlist/<uuid>/`, `POST /api/v1/wishlist/<uuid>/move-to-cart/`.
+  - **Admin Platform Coupons**: `GET/POST /api/v1/admin/coupons/`, `PATCH/DELETE /api/v1/admin/coupons/<uuid>/` (all mutations append immutable `AuditLog` entries).
 
-### Scheduled Upcoming Modules (Weeks 7–11)
-- Persistent Cart, Wishlist, Coupons & Buyer Addresses (`apps/cart`, `apps/coupons` — **Week 7**).
+### Scheduled Upcoming Modules (Weeks 8–11)
 - Multi-vendor order splitting, inventory locking, Razorpay HMAC/webhook & COD (`apps/orders`, `apps/payments` — **Week 8**).
 - Shipping, tracking events, 7-day returns & financial ledger/payouts (`apps/shipping`, `apps/finance` — **Weeks 9–10**).
+- Verified reviews, notifications & live analytics (`apps/reviews`, `apps/notifications` — **Week 11**).
 
 ---
 
-## 4. VS Code Local Verification Checklist (Week 6)
+## 4. VS Code Local Verification Checklist (Week 7)
 
-After pushing to GitHub and running `git pull origin main` in VS Code (no new database migration needed for Week 6!):
+After pushing to GitHub and running `git pull origin main` in VS Code:
 
-- [ ] Run the full automated Django test suite (21 tests total: 9 Auth + 6 Seller/Admin + 6 Catalog/Storefront tests):
+- [ ] Generate and apply the new `commerce` PostgreSQL migration:
   ```powershell
   cd backend
+  python manage.py makemigrations commerce
+  python manage.py migrate
+  ```
+- [ ] Run the full automated Django test suite (25 tests total: Auth + Sellers/Admin + Catalog/Storefront + 4 new Commerce tests):
+  ```powershell
   python manage.py test
   ```
-- [ ] Start Django (`python manage.py runserver`) and React (`npm run dev`) and verify the live shopping storefront:
-  1. On `/` (Home Page), click **Filters** → test INR **Min/Max price**, **In Stock Only**, **Customizable / Made to Order / One of a Kind**, and **Sort** options.
-  2. Click any approved product card → confirm it opens its dedicated **`/products/<slug>`** page with multi-photo Cloudinary gallery, live variant switcher, stock-bounded quantity stepper, **Add to Cart** / **Buy Now**, and **More Handmade Crafts** below.
-  3. Click the studio name (or **Our Artists** in the navbar) → explore **`/shops`** and click into a studio's dedicated **`/shops/<slug>`** storefront page!
+- [ ] Start Django (`python manage.py runserver`) and React (`npm run dev`) and verify end-to-end:
+  1. **Login-Gated Cart/Wishlist**: While logged out, click **Add to Cart** or the **Heart** icon on any product → confirms redirect to `/login`, and signing in returns you directly to that craft page.
+  2. **Persistent Cart & Refresh**: Add a craft (with optional personalization note on customizable crafts), refresh the browser (`F5`), and verify the Cart badge & `/cart` items remain intact from PostgreSQL and enforce live stock caps.
+  3. **Persistent Wishlist & Move to Cart**: Save crafts to Wishlist → open **Buyer Dashboard → Wishlist** → confirm live PostgreSQL products appear with **Move to Cart** and **Remove**.
+  4. **Buyer Indian Address Book**: Open **Buyer Dashboard → Addresses** → add a home/work address (10-digit Indian mobile & 6-digit pincode), set default, edit, and verify it appears automatically inside **Cart → Select Delivery Address & Review**.
+  5. **Admin Platform Coupons**: Sign in as Admin → open **Admin Dashboard → Coupons** (starts empty) → create a percentage or flat-INR coupon → verify applying it on `/cart` calculates exact server-side INR savings and records an entry in **Audit Logs**.
 
 ---
 
 ## 5. How to Start the Next Session / Module
 
-Once Week 6 tests pass in VS Code, tell the AI:
-> *"Check `PROJECT_PROGRESS.md` — Week 6 tests passed in VS Code. Let's start Week 7 (Persistent Cart, Wishlist, Coupons & Buyer Addresses)."*
+Once Week 7 tests pass in VS Code, tell the AI:
+> *"Check `PROJECT_PROGRESS.md` — Week 7 tests passed in VS Code. Let's start Week 8 (Multi-Vendor Order Splitting, Stock Locking, Razorpay & COD)."*

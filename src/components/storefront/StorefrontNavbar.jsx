@@ -95,7 +95,7 @@ export default function StorefrontNavbar({ searchQuery, onSearchChange }) {
           </form>
 
           <Link
-            to={user ? '/buyer/dashboard' : '/login'}
+            to={user ? '/buyer/dashboard?tab=wishlist' : '/login'}
             aria-label="Saved Wishlist"
             title="Wishlist"
             className="relative p-2 text-[#4A3B31] hover:text-[#8B4B28] transition-colors shrink-0"
