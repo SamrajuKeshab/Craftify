@@ -14,6 +14,9 @@ COUPON_CODE_RE = re.compile(r"^[A-Z0-9_-]{3,32}$")
 
 
 class BuyerAddressSerializer(serializers.ModelSerializer):
+    phone = serializers.CharField(max_length=20)
+    pincode = serializers.CharField(max_length=12)
+
     class Meta:
         model = BuyerAddress
         fields = (
