@@ -50,9 +50,15 @@ import {
   toggleUserActive,
 } from '../services/sellerService';
 import { fetchAdminCoupons } from '../services/commerceService';
+import {
+  fetchAdminOrders,
+  fetchAdminPayments,
+} from '../services/ordersService';
 import { formatINR, formatINRCompact } from '../utils/formatters';
 import AdminCategoriesTab from './AdminCategoriesTab';
 import AdminCouponsTab from './AdminCouponsTab';
+import AdminOrdersTab from './AdminOrdersTab';
+import AdminPaymentsTab from './AdminPaymentsTab';
 import AdminProductsTab from './AdminProductsTab';
 
 const EMPTY_ADMIN_SERIES = [
@@ -87,6 +93,10 @@ export default function AdminDashboard() {
   const [productStatusFilter, setProductStatusFilter] = useState('PENDING');
   const [coupons, setCoupons] = useState([]);
   const [couponStatusFilter, setCouponStatusFilter] = useState('ALL');
+  const [orders, setOrders] = useState([]);
+  const [orderStatusFilter, setOrderStatusFilter] = useState('ALL');
+  const [payments, setPayments] = useState([]);
+  const [paymentProviderFilter, setPaymentProviderFilter] = useState('ALL');
 
   const [loading, setLoading] = useState(false);
   const [actionBusyId, setActionBusyId] = useState(null);
@@ -228,6 +238,48 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadAdminOrders = async (
+    statusFilter = orderStatusFilter,
+    search = searchTerm
+  ) => {
+    setLoading(true);
+    try {
+      const data = await fetchAdminOrders({
+        status: statusFilter === 'ALL' ? '' : statusFilter,
+        search,
+      });
+      setOrders(data.results || []);
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: extractServiceError(err, 'Failed to load platform orders.'),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAdminPayments = async (
+    providerFilter = paymentProviderFilter,
+    search = searchTerm
+  ) => {
+    setLoading(true);
+    try {
+      const data = await fetchAdminPayments({
+        provider: providerFilter === 'ALL' ? '' : providerFilter,
+        search,
+      });
+      setPayments(data.results || []);
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: extractServiceError(err, 'Failed to load payment records.'),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboardOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -248,6 +300,10 @@ export default function AdminDashboard() {
       loadAdminProducts(productStatusFilter, searchTerm);
     } else if (activeTab === 'coupons') {
       loadAdminCoupons(couponStatusFilter, searchTerm);
+    } else if (activeTab === 'orders') {
+      loadAdminOrders(orderStatusFilter, searchTerm);
+    } else if (activeTab === 'payments') {
+      loadAdminPayments(paymentProviderFilter, searchTerm);
     } else if (activeTab === 'audit') {
       loadAuditLogs();
     }
@@ -258,6 +314,8 @@ export default function AdminDashboard() {
     appStatusFilter,
     productStatusFilter,
     couponStatusFilter,
+    orderStatusFilter,
+    paymentProviderFilter,
     searchTerm,
   ]);
 
@@ -418,6 +476,10 @@ export default function AdminDashboard() {
                 loadAdminProducts();
               } else if (activeTab === 'coupons') {
                 loadAdminCoupons();
+              } else if (activeTab === 'orders') {
+                loadAdminOrders();
+              } else if (activeTab === 'payments') {
+                loadAdminPayments();
               } else if (activeTab === 'buyers') {
                 loadBuyersDirectory();
               } else if (activeTab === 'audit') {
@@ -499,14 +561,18 @@ export default function AdminDashboard() {
                   Sales Overview
                 </h2>
                 <span className="text-xs text-slate-500">
-                  Live order revenue populates in Week 8
+                  Live Last 6 Months GMV (PostgreSQL)
                 </span>
               </div>
 
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
-                    data={EMPTY_ADMIN_SERIES}
+                    data={
+                      dashboard?.sales_series?.length
+                        ? dashboard.sales_series
+                        : EMPTY_ADMIN_SERIES
+                    }
                     margin={{ top: 8, right: 12, left: -12, bottom: 0 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
@@ -517,7 +583,11 @@ export default function AdminDashboard() {
                       tickLine={false}
                     />
                     <YAxis
-                      domain={[0, 10000]}
+                      domain={
+                        (dashboard?.sales_series || []).some((d) => d.thisMonth > 0)
+                          ? [0, 'auto']
+                          : [0, 10000]
+                      }
                       tickFormatter={formatINRCompact}
                       tick={{ fontSize: 12, fill: '#64748B' }}
                       axisLine={false}
@@ -1142,16 +1212,36 @@ export default function AdminDashboard() {
         />
       )}
 
+      {/* TAB 8: LIVE PLATFORM ORDERS (WEEK 8) */}
+      {activeTab === 'orders' && (
+        <AdminOrdersTab
+          orders={orders}
+          statusFilter={orderStatusFilter}
+          onStatusFilterChange={setOrderStatusFilter}
+          loading={loading}
+        />
+      )}
+
+      {/* TAB 9: LIVE PAYMENT LEDGER (WEEK 8) */}
+      {activeTab === 'payments' && (
+        <AdminPaymentsTab
+          payments={payments}
+          providerFilter={paymentProviderFilter}
+          onProviderFilterChange={setPaymentProviderFilter}
+          loading={loading}
+        />
+      )}
+
       {activeTab === 'settings' && <AccountSecurityPanel />}
 
-      {['orders', 'payments', 'reports'].includes(activeTab) && (
+      {activeTab === 'reports' && (
         <div className="rounded-xl bg-white border border-slate-200/80 p-6">
-          <h2 className="text-lg font-bold text-slate-900 capitalize">
-            Admin {activeTab} Management
+          <h2 className="text-lg font-bold text-slate-900">
+            Admin Reports &amp; Exports
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            No fake placeholder records are shown here. Live PostgreSQL APIs for{' '}
-            <strong>{activeTab}</strong> are scheduled in Weeks 8–11 of our roadmap.
+            No fake placeholder records are shown here. Live financial ledger exports
+            and deep analytics reports connect in Weeks 10–11 of our roadmap.
           </p>
           <button
             type="button"

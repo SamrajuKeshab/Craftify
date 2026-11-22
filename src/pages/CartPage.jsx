@@ -14,12 +14,20 @@ import {
   Truck,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BuyerAddressForm } from '../buyer/BuyerAddressesTab';
 import StorefrontNavbar from '../components/storefront/StorefrontNavbar';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import {
+  fetchCheckoutConfig,
+  loadRazorpayCheckoutScript,
+  placeCheckoutOrder,
+  reportRazorpayFailure,
+  verifyRazorpayPayment,
+} from '../services/ordersService';
+import { extractServiceError } from '../services/sellerService';
 import { formatINR } from '../utils/formatters';
 
 export default function CartPage() {
@@ -44,6 +52,8 @@ export default function CartPage() {
     applyCouponCode,
     removeCoupon,
     saveAddress,
+    refreshCart,
+    showToast,
   } = useCart();
   const { user, authLoading } = useAuth();
   const navigate = useNavigate();
@@ -57,11 +67,16 @@ export default function CartPage() {
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [noteDraft, setNoteDraft] = useState('');
 
-  // Checkout Readiness Modal (Saved Address Selection + Inline Add Address)
+  // Live Multi-Vendor Checkout Modal (COD + Razorpay)
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [addingInlineAddress, setAddingInlineAddress] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('RAZORPAY');
+  const [paymentMethod, setPaymentMethod] = useState('COD');
+  const [razorpayConfigured, setRazorpayConfigured] = useState(true);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+  const [confirmedOrder, setConfirmedOrder] = useState(null);
+  const idempotencyKeyRef = useRef('');
 
   useEffect(() => {
     if (addresses.length > 0) {
@@ -80,6 +95,30 @@ export default function CartPage() {
       setPaymentMethod('RAZORPAY');
     }
   }, [codEligible, paymentMethod]);
+
+  useEffect(() => {
+    if (!checkoutOpen || !user) return;
+    let active = true;
+    idempotencyKeyRef.current = `chk-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}`;
+    setCheckoutError('');
+    fetchCheckoutConfig()
+      .then((cfg) => {
+        if (!active) return;
+        const isConfigured = Boolean(cfg?.razorpay_configured);
+        setRazorpayConfigured(isConfigured);
+        if (!isConfigured && codEligible) {
+          setPaymentMethod('COD');
+        }
+      })
+      .catch(() => {
+        // Non-blocking config check
+      });
+    return () => {
+      active = false;
+    };
+  }, [checkoutOpen, user, codEligible]);
 
   const hasUnavailableItems = items.some((entry) => !entry.isAvailable);
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) || null;
@@ -150,6 +189,130 @@ export default function CartPage() {
       setAddingInlineAddress(false);
     }
     return res;
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!selectedAddressId) {
+      setCheckoutError('Please select or save an Indian delivery address first.');
+      return;
+    }
+    setCheckoutBusy(true);
+    setCheckoutError('');
+    try {
+      const response = await placeCheckoutOrder({
+        addressId: selectedAddressId,
+        paymentMethod,
+        idempotencyKey: idempotencyKeyRef.current,
+      });
+
+      if (paymentMethod === 'COD') {
+        await refreshCart();
+        setCheckoutOpen(false);
+        setConfirmedOrder(response.order);
+        showToast(response.detail || 'COD order confirmed!');
+        return;
+      }
+
+      // Razorpay Prepaid Flow
+      const rzp = response.razorpay;
+      if (!rzp?.key_id || !rzp?.razorpay_order_id) {
+        setCheckoutError('Razorpay checkout session could not be initialized.');
+        return;
+      }
+
+      const scriptLoaded = await loadRazorpayCheckoutScript();
+      if (!scriptLoaded || !window.Razorpay) {
+        await reportRazorpayFailure({
+          orderId: response.order.id,
+          reason: 'Could not load Razorpay Checkout script',
+        }).catch(() => {});
+        setCheckoutError(
+          'Could not load Razorpay Checkout. Please check your internet connection or use Cash on Delivery.'
+        );
+        return;
+      }
+
+      let paymentHandled = false;
+      const rzpInstance = new window.Razorpay({
+        key: rzp.key_id,
+        amount: rzp.amount_paise,
+        currency: rzp.currency || 'INR',
+        name: 'Craftify',
+        description: `Order ${response.order.order_number}`,
+        order_id: rzp.razorpay_order_id,
+        prefill: rzp.prefill || {},
+        theme: { color: '#8B4B28' },
+        handler: async (rzpRes) => {
+          paymentHandled = true;
+          try {
+            const verified = await verifyRazorpayPayment({
+              orderId: response.order.id,
+              razorpayOrderId: rzpRes.razorpay_order_id,
+              razorpayPaymentId: rzpRes.razorpay_payment_id,
+              razorpaySignature: rzpRes.razorpay_signature,
+            });
+            await refreshCart();
+            setCheckoutOpen(false);
+            setConfirmedOrder(verified.order);
+            showToast(verified.detail || 'Payment verified and order confirmed!');
+          } catch (verifyErr) {
+            setCheckoutError(
+              extractServiceError(
+                verifyErr,
+                'Payment signature verification failed. Please check your Buyer Dashboard.'
+              )
+            );
+          } finally {
+            setCheckoutBusy(false);
+          }
+        },
+        modal: {
+          ondismiss: async () => {
+            if (paymentHandled) return;
+            await reportRazorpayFailure({
+              orderId: response.order.id,
+              reason: 'Payment modal dismissed by buyer',
+            }).catch(() => {});
+            idempotencyKeyRef.current = `chk-${Date.now()}-${Math.random()
+              .toString(36)
+              .slice(2, 10)}`;
+            setCheckoutError(
+              'Razorpay checkout was cancelled. Reserved stock has been released and your cart is intact.'
+            );
+            setCheckoutBusy(false);
+          },
+        },
+      });
+
+      rzpInstance.on('payment.failed', async (failEvt) => {
+        if (paymentHandled) return;
+        paymentHandled = true;
+        const desc =
+          failEvt?.error?.description || 'Razorpay payment authorization failed';
+        await reportRazorpayFailure({
+          orderId: response.order.id,
+          reason: desc,
+        }).catch(() => {});
+        idempotencyKeyRef.current = `chk-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 10)}`;
+        setCheckoutError(
+          `Payment failed: ${desc}. Reserved stock has been released so you can retry.`
+        );
+        setCheckoutBusy(false);
+      });
+
+      rzpInstance.open();
+    } catch (err) {
+      setCheckoutError(
+        extractServiceError(err, 'Could not place order. Please review your cart.')
+      );
+      setCheckoutBusy(false);
+    } finally {
+      if (paymentMethod === 'COD') {
+        setCheckoutBusy(false);
+      }
+    }
   };
 
   // Group items by studio for checkout split preview
@@ -241,6 +404,106 @@ export default function CartPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-pulse">
             <div className="lg:col-span-8 h-64 rounded-2xl bg-white border border-[#EAE1D5]" />
             <div className="lg:col-span-4 h-64 rounded-2xl bg-white border border-[#EAE1D5]" />
+          </div>
+        ) : confirmedOrder ? (
+          <div className="rounded-2xl bg-white border border-[#D4E6D8] p-6 sm:p-8 max-w-3xl mx-auto space-y-6">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#EDF4EE] text-[#355E44] shrink-0">
+                <CheckCircle2 className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#355E44]">
+                  Order Confirmed
+                </p>
+                <h2 className="mt-0.5 font-serif text-2xl font-bold text-[#2C2018]">
+                  Thank you for supporting Indian artisans
+                </h2>
+                <p className="mt-1 text-xs text-[#6E5E52]">
+                  Order{' '}
+                  <strong className="font-mono text-[#2C2018]">
+                    {confirmedOrder.order_number}
+                  </strong>{' '}
+                  <span aria-hidden="true">·</span> {confirmedOrder.payment_method} (
+                  {confirmedOrder.payment_status}) <span aria-hidden="true">·</span>{' '}
+                  Total{' '}
+                  <strong className="font-mono text-[#2C2018] tabular-nums">
+                    {formatINR(Number(confirmedOrder.total_amount))}
+                  </strong>
+                </p>
+              </div>
+            </div>
+
+            {confirmedOrder.shipping_address_snapshot && (
+              <div className="rounded-xl bg-[#FAF6F0] border border-[#EAE1D5] p-4 text-xs text-[#524338]">
+                <p className="font-semibold text-[#2C2018]">
+                  Delivering to {confirmedOrder.shipping_address_snapshot.recipient_name}
+                </p>
+                <p className="mt-0.5">
+                  {confirmedOrder.shipping_address_snapshot.line1}
+                  {confirmedOrder.shipping_address_snapshot.line2
+                    ? `, ${confirmedOrder.shipping_address_snapshot.line2}`
+                    : ''}
+                  , {confirmedOrder.shipping_address_snapshot.city},{' '}
+                  {confirmedOrder.shipping_address_snapshot.state} —{' '}
+                  <span className="font-mono">
+                    {confirmedOrder.shipping_address_snapshot.pincode}
+                  </span>
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2.5">
+              <p className="text-xs font-semibold text-[#4A3B31]">
+                Split Artisan Studio Suborders ({confirmedOrder.suborders?.length || 0})
+              </p>
+              {confirmedOrder.suborders?.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-[#EAE1D5] px-4 py-3 text-xs"
+                >
+                  <div>
+                    <p className="font-semibold text-[#2C2018]">
+                      {sub.seller_shop_name_snapshot}{' '}
+                      <span className="font-mono text-[#7A6A5E]">
+                        ({sub.suborder_number})
+                      </span>
+                    </p>
+                    <p className="text-[#6E5E52] mt-0.5">
+                      {sub.items
+                        ?.map(
+                          (item) => `${item.product_title_snapshot} × ${item.quantity}`
+                        )
+                        .join(', ')}
+                    </p>
+                  </div>
+                  <div className="text-right font-mono tabular-nums">
+                    <p className="font-bold text-[#2C2018]">
+                      {formatINR(Number(sub.subtotal_amount))}
+                    </p>
+                    <p className="text-[11px] font-sans font-semibold text-[#355E44]">
+                      {sub.fulfilment_status}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <Link
+                to="/"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#524338] hover:text-[#8B4B28]"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Continue Shopping</span>
+              </Link>
+              <Link
+                to="/buyer/dashboard?tab=orders"
+                className="inline-flex items-center gap-2 rounded-lg bg-[#8B4B28] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#733C1E]"
+              >
+                <span>Track Order in Buyer Dashboard</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-2xl bg-white border border-[#EAE1D5] p-12 text-center">
@@ -582,7 +845,7 @@ export default function CartPage() {
                 }}
                 className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-[#8B4B28] px-5 py-3 text-sm font-semibold text-white hover:bg-[#733C1E] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <span>Select Delivery Address &amp; Review</span>
+                <span>Proceed to Checkout</span>
                 <ArrowRight className="h-4 w-4" />
               </button>
 
@@ -732,14 +995,15 @@ export default function CartPage() {
                     ))}
                   </div>
 
-                  {/* Payment Method Eligibility Preview */}
+                  {/* Payment Method Selection */}
                   <div className="border-t border-[#F1E8DD] pt-4">
                     <p className="text-xs font-semibold text-[#4A3B31] mb-2">
-                      Payment Method Eligibility
+                      Choose Payment Method
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <button
                         type="button"
+                        disabled={checkoutBusy}
                         onClick={() => setPaymentMethod('RAZORPAY')}
                         className={`rounded-xl border p-3.5 text-left transition-colors ${
                           paymentMethod === 'RAZORPAY'
@@ -751,13 +1015,15 @@ export default function CartPage() {
                           Razorpay Online
                         </p>
                         <p className="text-[11px] text-[#6E5E52] mt-0.5">
-                          UPI, Cards, Netbanking · Verified signature
+                          {razorpayConfigured
+                            ? 'UPI, Cards, Netbanking · Verified HMAC'
+                            : 'Add Razorpay Test Keys in backend/.env'}
                         </p>
                       </button>
 
                       <button
                         type="button"
-                        disabled={!codEligible}
+                        disabled={!codEligible || checkoutBusy}
                         onClick={() => setPaymentMethod('COD')}
                         className={`rounded-xl border p-3.5 text-left transition-colors ${
                           !codEligible
@@ -772,7 +1038,7 @@ export default function CartPage() {
                         </p>
                         <p className="text-[11px] text-[#6E5E52] mt-0.5">
                           {codEligible
-                            ? 'Eligible for doorstep payment'
+                            ? 'Pay at doorstep · Instant confirmation'
                             : `Available up to ${formatINR(codMaxAmount)}`}
                         </p>
                       </button>
@@ -786,31 +1052,40 @@ export default function CartPage() {
                     </span>
                   </div>
 
-                  <div className="rounded-xl bg-[#EDF4EE] border border-[#D4E6D8] p-4 text-xs text-[#355E44] space-y-1.5">
-                    <p className="font-semibold">
-                      {selectedAddress
-                        ? `Delivery address ready: ${selectedAddress.recipient_name}, ${selectedAddress.city} (${selectedAddress.pincode})`
-                        : 'Save a delivery address above to prepare for checkout.'}
-                    </p>
-                    <p>
-                      Live multi-vendor Order creation, atomic inventory locking, COD confirmation, and Razorpay payment verification connect to this exact cart &amp; address selection in Week 8.
-                    </p>
-                  </div>
+                  {checkoutError && (
+                    <div
+                      role="alert"
+                      className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-3.5 py-2.5 text-xs text-red-800"
+                    >
+                      <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                      <span>{checkoutError}</span>
+                    </div>
+                  )}
 
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                     <Link
                       to="/buyer/dashboard?tab=addresses"
                       onClick={() => setCheckoutOpen(false)}
                       className="text-xs font-semibold text-[#8B4B28] hover:underline"
                     >
-                      Manage Addresses in Buyer Dashboard
+                      Manage Saved Addresses
                     </Link>
                     <button
                       type="button"
-                      onClick={() => setCheckoutOpen(false)}
-                      className="rounded-lg bg-[#8B4B28] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#733C1E]"
+                      disabled={checkoutBusy || !selectedAddress}
+                      onClick={handlePlaceOrder}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#8B4B28] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#733C1E] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      Done Reviewing
+                      <span>
+                        {checkoutBusy
+                          ? paymentMethod === 'RAZORPAY'
+                            ? 'Opening Razorpay...'
+                            : 'Confirming Order...'
+                          : paymentMethod === 'RAZORPAY'
+                          ? `Pay ${formatINR(total)} via Razorpay`
+                          : `Confirm COD Order (${formatINR(total)})`}
+                      </span>
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </>

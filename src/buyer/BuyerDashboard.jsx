@@ -19,7 +19,11 @@ import DashboardShell from '../components/dashboards/DashboardShell';
 import EmailVerificationBanner from '../components/dashboards/EmailVerificationBanner';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { fetchMySellerApplicationStatus } from '../services/sellerService';
+import { cancelBuyerOrder, fetchBuyerOrders } from '../services/ordersService';
+import {
+  extractServiceError,
+  fetchMySellerApplicationStatus,
+} from '../services/sellerService';
 import { formatINR } from '../utils/formatters';
 import BuyerAddressesTab from './BuyerAddressesTab';
 
@@ -28,13 +32,13 @@ const VALID_BUYER_TABS = new Set(['orders', 'wishlist', 'addresses', 'security']
 export default function BuyerDashboard() {
   const { user, refreshUser } = useAuth();
   const {
-    placedOrders,
     wishlistItems,
     wishlistIds,
     wishlistLoading,
     addresses,
     moveWishlistToCart,
     toggleWishlist,
+    showToast,
   } = useCart();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -44,6 +48,12 @@ export default function BuyerDashboard() {
   );
   const [sellerStatus, setSellerStatus] = useState(null);
   const [busyProductId, setBusyProductId] = useState(null);
+
+  // Week 8 Live PostgreSQL Buyer Orders
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [cancellingOrderId, setCancellingOrderId] = useState(null);
+  const [orderFeedback, setOrderFeedback] = useState(null);
 
   useEffect(() => {
     if (requestedTab && VALID_BUYER_TABS.has(requestedTab)) {
@@ -81,8 +91,45 @@ export default function BuyerDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  const loadBuyerOrders = async () => {
+    setOrdersLoading(true);
+    try {
+      const data = await fetchBuyerOrders();
+      setOrders(data.results || []);
+    } catch {
+      // Non-blocking fallback
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadBuyerOrders();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const handleCancelOrder = async (orderId) => {
+    setCancellingOrderId(orderId);
+    setOrderFeedback(null);
+    try {
+      const res = await cancelBuyerOrder(orderId);
+      setOrderFeedback({ type: 'success', text: res.detail });
+      showToast(res.detail || 'Order cancelled.');
+      await loadBuyerOrders();
+    } catch (err) {
+      setOrderFeedback({
+        type: 'error',
+        text: extractServiceError(err, 'Could not cancel this order.'),
+      });
+    } finally {
+      setCancellingOrderId(null);
+    }
+  };
+
   const navItems = [
-    { id: 'orders', label: 'My Orders', icon: Package, badge: placedOrders.length },
+    { id: 'orders', label: 'My Orders', icon: Package, badge: orders.length },
     { id: 'wishlist', label: 'Wishlist', icon: Heart, badge: wishlistIds.length },
     { id: 'addresses', label: 'Addresses', icon: MapPin, badge: addresses.length },
     { id: 'security', label: 'Security', icon: Shield },
@@ -209,11 +256,41 @@ export default function BuyerDashboard() {
 
       {activeTab === 'orders' && (
         <div className="space-y-4">
-          <h2 className="text-base font-bold text-slate-900">
-            Order History &amp; Multi-Seller Tracking
-          </h2>
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">
+                Order History &amp; Multi-Seller Tracking ({orders.length})
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Live multi-vendor orders with per-studio fulfilment progress
+              </p>
+            </div>
+            <Link
+              to="/"
+              className="text-xs font-semibold text-[#2E9A90] hover:underline"
+            >
+              Browse Crafts
+            </Link>
+          </div>
 
-          {placedOrders.length === 0 ? (
+          {orderFeedback && (
+            <div
+              role="status"
+              className={`rounded-xl border px-4 py-3 text-xs font-medium ${
+                orderFeedback.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : 'bg-red-50 border-red-200 text-red-800'
+              }`}
+            >
+              {orderFeedback.text}
+            </div>
+          )}
+
+          {ordersLoading && orders.length === 0 ? (
+            <div className="rounded-xl bg-white border border-slate-200/80 p-10 text-center text-sm text-slate-500">
+              Loading your orders from PostgreSQL...
+            </div>
+          ) : orders.length === 0 ? (
             <div className="rounded-xl bg-white border border-slate-200/80 p-10 text-center">
               <Package className="mx-auto h-9 w-9 text-slate-300" />
               <p className="mt-3 text-sm font-semibold text-slate-900">
@@ -221,7 +298,7 @@ export default function BuyerDashboard() {
               </p>
               <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
                 Once you purchase handmade crafts from Craftify artisans, each
-                parent order and per-studio shipment tracker will appear here.
+                parent order and per-studio fulfilment tracker will appear here.
               </p>
               <Link
                 to="/"
@@ -232,52 +309,143 @@ export default function BuyerDashboard() {
               </Link>
             </div>
           ) : (
-            placedOrders.map((order) => (
-              <div
-                key={order.id}
-                className="rounded-xl bg-white border border-slate-200/80 p-5"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
-                  <div>
-                    <span className="font-mono text-sm font-bold text-slate-900">
-                      {order.id}
-                    </span>
-                    <span className="mx-2 text-slate-300">·</span>
-                    <span className="text-xs text-slate-500">
-                      {order.date} · {order.paymentMethod}
-                    </span>
-                  </div>
-                  <span className="font-mono text-sm font-bold text-slate-900 tabular-nums">
-                    {formatINR(order.total)}
-                  </span>
-                </div>
+            orders.map((order) => {
+              const addr = order.shipping_address_snapshot || {};
+              const canCancel =
+                !['CANCELLED', 'PAYMENT_FAILED', 'SHIPPED', 'DELIVERED'].includes(
+                  order.overall_status
+                ) &&
+                !(order.suborders || []).some((sub) =>
+                  ['PACKED', 'SHIPPED', 'DELIVERED'].includes(sub.fulfilment_status)
+                );
 
-                <div className="mt-3 space-y-2.5">
-                  {order.suborders.map((sub) => (
-                    <div
-                      key={sub.code}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-xs"
-                    >
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          {sub.seller}{' '}
-                          <span className="font-mono text-slate-400">
-                            ({sub.code})
-                          </span>
-                        </p>
-                        <p className="text-slate-600 mt-0.5">{sub.item}</p>
-                      </div>
-                      <div className="flex items-center gap-2 text-teal-700 font-medium">
-                        <Truck className="h-3.5 w-3.5 shrink-0" />
-                        <span>
-                          {sub.status} · {sub.tracking}
+              return (
+                <div
+                  key={order.id}
+                  className="rounded-xl bg-white border border-slate-200/80 p-5 space-y-3.5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2 pb-3 border-b border-slate-100">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-sm font-bold text-slate-900">
+                          {order.order_number}
+                        </span>
+                        <span className="text-slate-300" aria-hidden="true">
+                          ·
+                        </span>
+                        <span
+                          className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
+                            order.overall_status === 'CANCELLED' ||
+                            order.overall_status === 'PAYMENT_FAILED'
+                              ? 'bg-red-100 text-red-700'
+                              : order.overall_status === 'DELIVERED'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-teal-50 text-teal-800'
+                          }`}
+                        >
+                          {order.overall_status}
                         </span>
                       </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {new Date(order.created_at).toLocaleString('en-IN')}{' '}
+                        <span aria-hidden="true">·</span> {order.payment_method} (
+                        {order.payment_status})
+                        {order.coupon_code_snapshot ? (
+                          <>
+                            {' '}
+                            <span aria-hidden="true">·</span> Coupon{' '}
+                            <strong className="font-mono text-emerald-700">
+                              {order.coupon_code_snapshot}
+                            </strong>
+                          </>
+                        ) : null}
+                      </p>
+                      {addr.city && (
+                        <p className="mt-0.5 text-[11px] text-slate-500">
+                          Deliver to: {addr.recipient_name}, {addr.city}, {addr.state} —{' '}
+                          <span className="font-mono">{addr.pincode}</span>
+                        </p>
+                      )}
                     </div>
-                  ))}
+
+                    <div className="text-right">
+                      <span className="font-mono text-sm font-bold text-slate-900 tabular-nums">
+                        {formatINR(Number(order.total_amount))}
+                      </span>
+                      {canCancel && (
+                        <div className="mt-1.5">
+                          <button
+                            type="button"
+                            disabled={cancellingOrderId === order.id}
+                            onClick={() => handleCancelOrder(order.id)}
+                            className="rounded-lg border border-red-200 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {cancellingOrderId === order.id
+                              ? 'Cancelling...'
+                              : 'Cancel Order'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {(order.suborders || []).map((sub) => (
+                      <div
+                        key={sub.id}
+                        className="rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-xs space-y-2"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-slate-900">
+                              {sub.seller_shop_name_snapshot}{' '}
+                              <span className="font-mono text-slate-400">
+                                ({sub.suborder_number})
+                              </span>
+                            </p>
+                            {sub.seller_notes && (
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Studio update: {sub.seller_notes}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-teal-700 font-semibold">
+                            <Truck className="h-3.5 w-3.5 shrink-0" />
+                            <span>{sub.fulfilment_status}</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5 pt-1 border-t border-slate-200/70">
+                          {(sub.items || []).map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center justify-between gap-3 text-slate-700"
+                            >
+                              <div className="min-w-0">
+                                <span className="font-medium text-slate-800">
+                                  {item.product_title_snapshot}
+                                </span>{' '}
+                                <span className="text-slate-500">
+                                  ({item.variant_label_snapshot}) × {item.quantity}
+                                </span>
+                                {item.customization_note && (
+                                  <p className="text-[11px] text-amber-800 mt-0.5">
+                                    Note: {item.customization_note}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="font-mono font-semibold text-slate-800 tabular-nums shrink-0">
+                                {formatINR(Number(item.line_total))}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}

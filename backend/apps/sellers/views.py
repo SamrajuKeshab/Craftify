@@ -174,7 +174,12 @@ class AdminDashboardSummaryView(APIView):
     permission_classes = [IsAdminRole]
 
     def get(self, request):
+        from decimal import Decimal
+        from django.db.models import Sum
+
         from apps.catalog.models import Category, Product
+        from apps.orders.models import Order
+        from apps.orders.views import _build_6m_series
 
         total_buyers = User.objects.filter(role=User.Role.BUYER).count()
         total_sellers = SellerProfile.objects.count()
@@ -191,19 +196,33 @@ class AdminDashboardSummaryView(APIView):
             is_deleted=False,
         ).count()
         total_categories = Category.objects.count()
+
+        valid_orders_qs = Order.objects.exclude(
+            overall_status__in=[
+                Order.OverallStatus.PENDING_PAYMENT,
+                Order.OverallStatus.PAYMENT_FAILED,
+                Order.OverallStatus.CANCELLED,
+            ]
+        )
+        revenue_agg = valid_orders_qs.aggregate(total=Sum("total_amount"))
+        total_revenue = revenue_agg["total"] or Decimal("0.00")
+        total_orders = valid_orders_qs.count()
+        sales_series = _build_6m_series(valid_orders_qs, "total_amount", "thisMonth")
+
         recent_logs = AuditLog.objects.select_related("actor")[:8]
 
         return Response(
             {
                 "kpis": {
-                    "total_revenue": "0.00",
-                    "total_orders": 0,
+                    "total_revenue": f"{total_revenue:.2f}",
+                    "total_orders": total_orders,
                     "total_buyers": total_buyers,
                     "total_sellers": total_sellers,
                     "active_sellers": active_sellers,
                     "approved_products": approved_products,
                     "total_categories": total_categories,
                 },
+                "sales_series": sales_series,
                 "pending_approvals": {
                     "seller_applications": pending_seller_apps,
                     "product_approvals": pending_products,

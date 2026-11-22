@@ -31,12 +31,14 @@ import {
   fetchPublicCategories,
   fetchSellerProducts,
 } from '../services/catalogService';
+import { fetchSellerSuborders } from '../services/ordersService';
 import {
   extractServiceError,
   fetchMySellerShop,
   updateMySellerShop,
 } from '../services/sellerService';
 import { formatINR, formatINRCompact } from '../utils/formatters';
+import SellerOrdersTab from './SellerOrdersTab';
 import SellerProductsTab from './SellerProductsTab';
 
 const EMPTY_SALES_6M = [
@@ -55,7 +57,17 @@ const EMPTY_SALES_6M = [
 export default function SellerDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [suborders] = useState([]);
+  const [suborders, setSuborders] = useState([]);
+  const [orderSummary, setOrderSummary] = useState({
+    total_sales: '0.00',
+    total_commission: '0.00',
+    net_earnings: '0.00',
+    total_orders: 0,
+    pending_count: 0,
+  });
+  const [salesSeries, setSalesSeries] = useState(EMPTY_SALES_6M);
+  const [orderStatusFilter, setOrderStatusFilter] = useState('ALL');
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   const [shop, setShop] = useState(null);
   const [shopLoading, setShopLoading] = useState(true);
@@ -98,15 +110,33 @@ export default function SellerDashboard() {
     }
   };
 
+  const loadSellerSuborders = async (statusFilter = orderStatusFilter) => {
+    setOrdersLoading(true);
+    try {
+      const data = await fetchSellerSuborders(statusFilter);
+      setSuborders(data.results || []);
+      if (data.summary) setOrderSummary(data.summary);
+      if (Array.isArray(data.sales_series) && data.sales_series.length > 0) {
+        setSalesSeries(data.sales_series);
+      }
+      return data.results || [];
+    } catch {
+      return [];
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
   useEffect(() => {
     let active = true;
     async function loadInitialStudioData() {
       setShopLoading(true);
       try {
-        const [shopData, catData, prodData] = await Promise.allSettled([
+        const [shopData, catData, prodData, suborderData] = await Promise.allSettled([
           fetchMySellerShop(),
           fetchPublicCategories(),
           fetchSellerProducts('ALL'),
+          fetchSellerSuborders('ALL'),
         ]);
         if (!active) return;
 
@@ -117,6 +147,19 @@ export default function SellerDashboard() {
         if (prodData.status === 'fulfilled') {
           setProducts(prodData.value?.results || []);
           setApprovedProductCount(prodData.value?.approved_count ?? 0);
+        }
+
+        if (suborderData.status === 'fulfilled' && suborderData.value) {
+          setSuborders(suborderData.value.results || []);
+          if (suborderData.value.summary) {
+            setOrderSummary(suborderData.value.summary);
+          }
+          if (
+            Array.isArray(suborderData.value.sales_series) &&
+            suborderData.value.sales_series.length > 0
+          ) {
+            setSalesSeries(suborderData.value.sales_series);
+          }
         }
 
         if (shopData.status === 'fulfilled' && shopData.value) {
@@ -150,9 +193,11 @@ export default function SellerDashboard() {
   useEffect(() => {
     if (activeTab === 'products') {
       loadSellerProducts(productStatusFilter);
+    } else if (activeTab === 'orders') {
+      loadSellerSuborders(orderStatusFilter);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, productStatusFilter]);
+  }, [activeTab, productStatusFilter, orderStatusFilter]);
 
   const handleSaveShop = async (e) => {
     e.preventDefault();
@@ -197,7 +242,12 @@ export default function SellerDashboard() {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'shop', label: 'My Shop', icon: Store },
     { id: 'products', label: 'Products', icon: Package },
-    { id: 'orders', label: 'Orders', icon: ShoppingCart },
+    {
+      id: 'orders',
+      label: 'Orders',
+      icon: ShoppingCart,
+      badge: orderSummary.pending_count || undefined,
+    },
     { id: 'earnings', label: 'Earnings', icon: Wallet },
     { id: 'reviews', label: 'Reviews', icon: Star },
     { id: 'settings', label: 'Settings', icon: Settings },
@@ -236,11 +286,11 @@ export default function SellerDashboard() {
 
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
-          {/* 4 Honest Zero-Baseline KPI Cards */}
+          {/* 4 Live Seller KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="rounded-xl bg-white border border-slate-200/80 p-5">
               <p className="font-mono text-2xl font-bold text-slate-900 tabular-nums">
-                {formatINR(0)}
+                {formatINR(Number(orderSummary.total_sales || 0))}
               </p>
               <p className="mt-1 text-xs font-medium text-slate-500">
                 Total Sales
@@ -249,7 +299,7 @@ export default function SellerDashboard() {
 
             <div className="rounded-xl bg-white border border-slate-200/80 p-5">
               <p className="font-mono text-2xl font-bold text-slate-900 tabular-nums">
-                {formatINR(0)}
+                {formatINR(Number(orderSummary.net_earnings || 0))}
               </p>
               <p className="mt-1 text-xs font-medium text-slate-500">
                 Net Earnings (after category commission)
@@ -258,7 +308,7 @@ export default function SellerDashboard() {
 
             <div className="rounded-xl bg-white border border-slate-200/80 p-5">
               <p className="font-mono text-2xl font-bold text-slate-900 tabular-nums">
-                0
+                {orderSummary.total_orders ?? 0}
               </p>
               <p className="mt-1 text-xs font-medium text-slate-500">
                 Total Orders
@@ -275,7 +325,7 @@ export default function SellerDashboard() {
             </div>
           </div>
 
-          {/* Middle Row: Sales Overview Chart + Empty Recent Orders */}
+          {/* Middle Row: Live Sales Overview Chart + Live Recent Suborders */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
             <div className="xl:col-span-7 rounded-xl bg-white border border-slate-200/80 p-5 sm:p-6">
               <div className="flex items-center justify-between gap-3 mb-5">
@@ -288,7 +338,7 @@ export default function SellerDashboard() {
               <div className="h-60 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={EMPTY_SALES_6M}
+                    data={salesSeries}
                     margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
                   >
                     <CartesianGrid
@@ -303,7 +353,11 @@ export default function SellerDashboard() {
                       tickLine={false}
                     />
                     <YAxis
-                      domain={[0, 10000]}
+                      domain={
+                        salesSeries.some((d) => d.sales > 0)
+                          ? [0, 'auto']
+                          : [0, 10000]
+                      }
                       tickFormatter={formatINRCompact}
                       tick={{ fontSize: 12, fill: '#64748B' }}
                       axisLine={false}
@@ -337,16 +391,46 @@ export default function SellerDashboard() {
                 </button>
               </div>
 
-              <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
-                <ShoppingCart className="h-8 w-8 text-slate-300" />
-                <p className="mt-3 text-sm font-semibold text-slate-800">
-                  No orders received yet
-                </p>
-                <p className="mt-1 text-xs text-slate-500 max-w-xs">
-                  Seller-specific suborders from PostgreSQL will appear here once
-                  products and orders go live (Weeks 5 &amp; 8).
-                </p>
-              </div>
+              {suborders.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
+                  <ShoppingCart className="h-8 w-8 text-slate-300" />
+                  <p className="mt-3 text-sm font-semibold text-slate-800">
+                    No orders received yet
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 max-w-xs">
+                    Once buyers order your approved crafts, your split Seller Suborders will appear here in real time.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {suborders.slice(0, 4).map((sub) => (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => setActiveTab('orders')}
+                      className="w-full text-left py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3 hover:bg-slate-50/80 rounded-lg px-1.5 -mx-1.5 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-mono text-xs font-bold text-slate-900 truncate">
+                          {sub.suborder_number}
+                        </p>
+                        <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                          {sub.buyer_name} · {sub.items?.length || 0} item
+                          {(sub.items?.length || 0) === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-mono text-xs font-bold text-slate-900 tabular-nums">
+                          {formatINR(Number(sub.net_seller_amount))}
+                        </p>
+                        <p className="text-[11px] font-semibold text-teal-700">
+                          {sub.fulfilment_status}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -644,16 +728,15 @@ export default function SellerDashboard() {
         </div>
       )}
 
+      {/* Live Week 8 Seller Suborders Fulfilment Tab */}
       {activeTab === 'orders' && (
-        <div className="rounded-xl bg-white border border-slate-200/80 p-10 text-center">
-          <ShoppingCart className="mx-auto h-9 w-9 text-slate-300" />
-          <h2 className="mt-3 text-base font-bold text-slate-900">
-            No Seller Suborders Yet ({suborders.length})
-          </h2>
-          <p className="mt-1 text-xs text-slate-500 max-w-md mx-auto">
-            Multi-vendor suborder fulfilment connects to PostgreSQL in Weeks 8–9.
-          </p>
-        </div>
+        <SellerOrdersTab
+          suborders={suborders}
+          statusFilter={orderStatusFilter}
+          onStatusFilterChange={setOrderStatusFilter}
+          loading={ordersLoading}
+          onRefresh={() => loadSellerSuborders(orderStatusFilter)}
+        />
       )}
 
       {/* Live Week 5 Seller Products & Inventory Manager */}

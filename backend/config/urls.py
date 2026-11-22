@@ -13,6 +13,10 @@ from apps.commerce.urls import (
     admin_commerce_urlpatterns,
     commerce_urlpatterns,
 )
+from apps.orders.urls import (
+    admin_orders_urlpatterns,
+    orders_urlpatterns,
+)
 from apps.sellers.urls import admin_urlpatterns, seller_urlpatterns
 from common.views import HealthCheckView
 
@@ -25,6 +29,8 @@ urlpatterns = [
     path("api/v1/admin/", include(admin_urlpatterns)),
     path("api/v1/admin/", include(admin_catalog_urlpatterns)),
     path("api/v1/admin/", include(admin_commerce_urlpatterns)),
+    path("api/v1/admin/", include(admin_orders_urlpatterns)),
+    path("api/v1/", include(orders_urlpatterns)),
     path("api/v1/", include(commerce_urlpatterns)),
     path("api/v1/", include(public_catalog_urlpatterns)),
 ]
