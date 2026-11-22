@@ -54,10 +54,12 @@ class Week7CommerceAPITests(APITestCase):
             slug="jaipur-clay-studio",
             primary_category="Pottery & Ceramics",
             description="Handmade stoneware pottery from Jaipur.",
-            pickup_address="12 Johari Bazaar, Jaipur",
             city="Jaipur",
             state="Rajasthan",
-            pincode="302003",
+            pickup_address_json={
+                "address": "12 Johari Bazaar, Jaipur",
+                "pincode": "302003",
+            },
         )
         self.category = Category.objects.create(
             name="Pottery & Ceramics",
