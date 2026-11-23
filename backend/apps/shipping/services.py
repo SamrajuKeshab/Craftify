@@ -105,7 +105,7 @@ def dispatch_seller_suborder(
 ) -> SellerSuborder:
     """Transition a PACKED SellerSuborder to SHIPPED with Indian courier & AWB tracking."""
     suborder = (
-        SellerSuborder.objects.select_for_update()
+        SellerSuborder.objects.select_for_update(of=("self",))
         .select_related("parent_order", "seller")
         .prefetch_related("items")
         .filter(pk=suborder_id, seller=seller_profile)
@@ -206,7 +206,7 @@ def add_shipment_tracking_event(
 ) -> SellerSuborder:
     """Append a chronological transit checkpoint event to an active SHIPPED suborder."""
     suborder = (
-        SellerSuborder.objects.select_for_update()
+        SellerSuborder.objects.select_for_update(of=("self",))
         .select_related("parent_order", "seller", "shipment")
         .filter(pk=suborder_id, seller=seller_profile)
         .first()
@@ -273,7 +273,7 @@ def mark_suborder_delivered(
     7-day buyer return window), and capture COD payment once all active parcels deliver.
     """
     suborder = (
-        SellerSuborder.objects.select_for_update()
+        SellerSuborder.objects.select_for_update(of=("self",))
         .select_related("parent_order", "seller", "shipment")
         .filter(pk=suborder_id, seller=seller_profile)
         .first()
@@ -404,7 +404,7 @@ def create_buyer_return_request(
     enforcing personalized/made-to-order restrictions and optional Cloudinary photo upload.
     """
     order_item = (
-        OrderItem.objects.select_for_update()
+        OrderItem.objects.select_for_update(of=("self",))
         .select_related("suborder", "suborder__parent_order", "suborder__seller", "product")
         .filter(pk=order_item_id, suborder__parent_order__buyer=buyer)
         .first()
@@ -545,7 +545,7 @@ def resolve_seller_return_request(
     a return request strictly for their own studio suborder.
     """
     ret = (
-        ReturnRequest.objects.select_for_update()
+        ReturnRequest.objects.select_for_update(of=("self",))
         .select_related(
             "suborder",
             "suborder__parent_order",
