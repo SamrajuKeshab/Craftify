@@ -233,7 +233,14 @@ class BuyerOrderListView(APIView):
             Order.objects.filter(buyer=request.user)
             .exclude(overall_status=Order.OverallStatus.PENDING_PAYMENT)
             .select_related("buyer")
-            .prefetch_related("suborders__items", "suborders__seller", "payments")
+            .prefetch_related(
+                "suborders__items__product",
+                "suborders__seller",
+                "suborders__shipment__events",
+                "suborders__return_requests__order_item",
+                "suborders__return_requests__buyer",
+                "payments",
+            )
             .order_by("-created_at")
         )
         data = OrderDetailSerializer(orders[:50], many=True).data
@@ -248,7 +255,12 @@ class BuyerOrderDetailView(APIView):
     def get(self, request, order_id):
         order = get_object_or_404(
             Order.objects.select_related("buyer").prefetch_related(
-                "suborders__items", "suborders__seller", "payments"
+                "suborders__items__product",
+                "suborders__seller",
+                "suborders__shipment__events",
+                "suborders__return_requests__order_item",
+                "suborders__return_requests__buyer",
+                "payments",
             ),
             pk=order_id,
             buyer=request.user,
@@ -339,8 +351,13 @@ class SellerSuborderListView(APIView):
         base_qs = (
             SellerSuborder.objects.filter(seller=profile)
             .exclude(fulfilment_status=SellerSuborder.FulfilmentStatus.PENDING_PAYMENT)
-            .select_related("parent_order", "parent_order__buyer", "seller")
-            .prefetch_related("items")
+            .select_related("parent_order", "parent_order__buyer", "seller", "shipment")
+            .prefetch_related(
+                "items__product",
+                "shipment__events",
+                "return_requests__order_item",
+                "return_requests__buyer",
+            )
             .order_by("-created_at")
         )
 
@@ -422,7 +439,14 @@ class AdminOrderListView(APIView):
 
         qs = (
             Order.objects.select_related("buyer")
-            .prefetch_related("suborders__items", "suborders__seller", "payments")
+            .prefetch_related(
+                "suborders__items__product",
+                "suborders__seller",
+                "suborders__shipment__events",
+                "suborders__return_requests__order_item",
+                "suborders__return_requests__buyer",
+                "payments",
+            )
             .order_by("-created_at")
         )
         if status_filter and status_filter != "ALL":

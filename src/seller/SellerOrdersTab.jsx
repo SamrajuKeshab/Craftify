@@ -1,18 +1,39 @@
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  ExternalLink,
   MapPin,
   Package,
   PackageCheck,
+  Send,
   ShoppingCart,
+  Truck,
   XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
 import { updateSellerSuborderStatus } from '../services/ordersService';
 import { extractServiceError } from '../services/sellerService';
+import {
+  INDIAN_COURIERS,
+  addShipmentEvent,
+  dispatchSellerSuborder,
+  markSuborderDelivered,
+} from '../services/shippingService';
 import { formatINR } from '../utils/formatters';
 
-const STATUS_TABS = ['ALL', 'PENDING', 'ACCEPTED', 'PACKED', 'CANCELLED'];
+const STATUS_TABS = [
+  'ALL',
+  'PENDING',
+  'ACCEPTED',
+  'PACKED',
+  'SHIPPED',
+  'DELIVERED',
+  'RETURNED',
+  'CANCELLED',
+];
 
 const STATUS_STYLES = {
   PENDING: 'bg-amber-50 text-amber-800 border-amber-200',
@@ -20,7 +41,29 @@ const STATUS_STYLES = {
   PACKED: 'bg-teal-50 text-teal-800 border-teal-200',
   SHIPPED: 'bg-indigo-50 text-indigo-800 border-indigo-200',
   DELIVERED: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  RETURNED: 'bg-purple-50 text-purple-800 border-purple-200',
   CANCELLED: 'bg-red-50 text-red-700 border-red-200',
+};
+
+const MILESTONE_OPTIONS = [
+  { value: 'IN_TRANSIT', label: 'In Transit' },
+  { value: 'OUT_FOR_DELIVERY', label: 'Out for Delivery' },
+  { value: 'DELIVERY_ATTEMPTED', label: 'Delivery Attempted' },
+];
+
+const DEFAULT_SHIP_DRAFT = {
+  courierPreset: INDIAN_COURIERS[0],
+  customCourier: '',
+  trackingNumber: '',
+  trackingUrl: '',
+  estimatedDeliveryDate: '',
+  dispatchNotes: '',
+};
+
+const DEFAULT_EVENT_DRAFT = {
+  status: 'IN_TRANSIT',
+  location: '',
+  notes: '',
 };
 
 export default function SellerOrdersTab({
@@ -32,7 +75,35 @@ export default function SellerOrdersTab({
 }) {
   const [busyId, setBusyId] = useState(null);
   const [notesMap, setNotesMap] = useState({});
+  const [shipDrafts, setShipDrafts] = useState({});
+  const [eventDrafts, setEventDrafts] = useState({});
+  const [deliveryNotesMap, setDeliveryNotesMap] = useState({});
+  const [expandedTimeline, setExpandedTimeline] = useState({});
   const [feedback, setFeedback] = useState(null);
+
+  const getShipDraft = (subId) => ({
+    ...DEFAULT_SHIP_DRAFT,
+    ...(shipDrafts[subId] || {}),
+  });
+
+  const updateShipDraft = (subId, patch) => {
+    setShipDrafts((prev) => ({
+      ...prev,
+      [subId]: { ...DEFAULT_SHIP_DRAFT, ...(prev[subId] || {}), ...patch },
+    }));
+  };
+
+  const getEventDraft = (subId) => ({
+    ...DEFAULT_EVENT_DRAFT,
+    ...(eventDrafts[subId] || {}),
+  });
+
+  const updateEventDraft = (subId, patch) => {
+    setEventDrafts((prev) => ({
+      ...prev,
+      [subId]: { ...DEFAULT_EVENT_DRAFT, ...(prev[subId] || {}), ...patch },
+    }));
+  };
 
   const handleTransition = async (suborder, nextStatus) => {
     setBusyId(suborder.id);
@@ -54,6 +125,103 @@ export default function SellerOrdersTab({
     }
   };
 
+  const handleDispatch = async (e, suborder) => {
+    e.preventDefault();
+    const draft = getShipDraft(suborder.id);
+    const courierName =
+      draft.courierPreset === 'Custom'
+        ? draft.customCourier.trim()
+        : draft.courierPreset;
+
+    if (!courierName) {
+      setFeedback({
+        type: 'error',
+        text: 'Please select an Indian courier or enter a custom courier name.',
+      });
+      return;
+    }
+    if (draft.trackingNumber.trim().length < 4) {
+      setFeedback({
+        type: 'error',
+        text: 'Please enter a valid AWB / tracking number (at least 4 characters).',
+      });
+      return;
+    }
+
+    setBusyId(suborder.id);
+    setFeedback(null);
+    try {
+      const res = await dispatchSellerSuborder(suborder.id, {
+        courierName,
+        trackingNumber: draft.trackingNumber.trim(),
+        trackingUrl: draft.trackingUrl.trim(),
+        estimatedDeliveryDate: draft.estimatedDeliveryDate || null,
+        dispatchNotes: draft.dispatchNotes.trim(),
+      });
+      setFeedback({ type: 'success', text: res.detail });
+      setShipDrafts((prev) => {
+        const next = { ...prev };
+        delete next[suborder.id];
+        return next;
+      });
+      await onRefresh();
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: extractServiceError(err, 'Could not dispatch shipment.'),
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleAddEvent = async (e, suborder) => {
+    e.preventDefault();
+    const draft = getEventDraft(suborder.id);
+    setBusyId(suborder.id);
+    setFeedback(null);
+    try {
+      const res = await addShipmentEvent(suborder.id, {
+        status: draft.status,
+        location: draft.location.trim(),
+        notes: draft.notes.trim(),
+      });
+      setFeedback({ type: 'success', text: res.detail });
+      setEventDrafts((prev) => ({
+        ...prev,
+        [suborder.id]: { ...DEFAULT_EVENT_DRAFT, status: draft.status },
+      }));
+      setExpandedTimeline((prev) => ({ ...prev, [suborder.id]: true }));
+      await onRefresh();
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: extractServiceError(err, 'Could not record tracking event.'),
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleMarkDelivered = async (suborder) => {
+    setBusyId(suborder.id);
+    setFeedback(null);
+    try {
+      const res = await markSuborderDelivered(suborder.id, {
+        deliveryNotes: (deliveryNotesMap[suborder.id] || '').trim(),
+      });
+      setFeedback({ type: 'success', text: res.detail });
+      await onRefresh();
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: extractServiceError(err, 'Could not mark parcel as delivered.'),
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -62,7 +230,7 @@ export default function SellerOrdersTab({
             Studio Suborders ({suborders.length})
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Only items belonging to your Craftify studio appear here. Accept &amp; pack each order before dispatch.
+            Accept, pack, dispatch with Indian courier AWB tracking, and record delivery milestones for your studio.
           </p>
         </div>
 
@@ -135,6 +303,12 @@ export default function SellerOrdersTab({
             const canCancel =
               sub.fulfilment_status === 'PENDING' ||
               sub.fulfilment_status === 'ACCEPTED';
+            const isPacked = sub.fulfilment_status === 'PACKED';
+            const isShipped = sub.fulfilment_status === 'SHIPPED';
+            const shipment = sub.shipment;
+            const shipDraft = getShipDraft(sub.id);
+            const eventDraft = getEventDraft(sub.id);
+            const timelineOpen = Boolean(expandedTimeline[sub.id]);
 
             return (
               <div
@@ -275,7 +449,7 @@ export default function SellerOrdersTab({
                   </div>
                 </div>
 
-                {/* Fulfilment Transition Bar */}
+                {/* Fulfilment Transition Bar (PENDING / ACCEPTED) */}
                 {(canAccept || canPack || canCancel) && (
                   <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center gap-3">
                     <input
@@ -325,6 +499,337 @@ export default function SellerOrdersTab({
                     </div>
                   </div>
                 )}
+
+                {/* Week 9: Dispatch with Indian Courier Form (when PACKED) */}
+                {isPacked && (
+                  <form
+                    onSubmit={(e) => handleDispatch(e, sub)}
+                    className="pt-3.5 border-t border-slate-100 space-y-3"
+                  >
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+                      <Truck className="h-4 w-4 text-[#2E9A90]" />
+                      <span>Dispatch Packed Parcel with Indian Courier</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Courier Partner
+                        </label>
+                        <select
+                          value={shipDraft.courierPreset}
+                          onChange={(e) =>
+                            updateShipDraft(sub.id, { courierPreset: e.target.value })
+                          }
+                          className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2E9A90]"
+                        >
+                          {INDIAN_COURIERS.map((courier) => (
+                            <option key={courier} value={courier}>
+                              {courier}
+                            </option>
+                          ))}
+                          <option value="Custom">Custom Courier...</option>
+                        </select>
+                      </div>
+
+                      {shipDraft.courierPreset === 'Custom' && (
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                            Custom Courier Name
+                          </label>
+                          <input
+                            required
+                            maxLength={80}
+                            value={shipDraft.customCourier}
+                            onChange={(e) =>
+                              updateShipDraft(sub.id, { customCourier: e.target.value })
+                            }
+                            placeholder="e.g., Shree Maruti Courier"
+                            className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs focus:outline-none focus:border-[#2E9A90]"
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          AWB / Tracking Number
+                        </label>
+                        <input
+                          required
+                          maxLength={100}
+                          value={shipDraft.trackingNumber}
+                          onChange={(e) =>
+                            updateShipDraft(sub.id, { trackingNumber: e.target.value })
+                          }
+                          placeholder="e.g., DLV8492019482"
+                          className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-mono focus:outline-none focus:border-[#2E9A90]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Estimated Delivery (Optional)
+                        </label>
+                        <input
+                          type="date"
+                          value={shipDraft.estimatedDeliveryDate}
+                          onChange={(e) =>
+                            updateShipDraft(sub.id, {
+                              estimatedDeliveryDate: e.target.value,
+                            })
+                          }
+                          className="w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-mono focus:outline-none focus:border-[#2E9A90]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <input
+                        type="url"
+                        maxLength={500}
+                        value={shipDraft.trackingUrl}
+                        onChange={(e) =>
+                          updateShipDraft(sub.id, { trackingUrl: e.target.value })
+                        }
+                        placeholder="Optional courier tracking URL (https://...)"
+                        className="rounded-lg border border-slate-200 px-3 py-2 text-xs focus:outline-none focus:border-[#2E9A90]"
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          maxLength={300}
+                          value={shipDraft.dispatchNotes}
+                          onChange={(e) =>
+                            updateShipDraft(sub.id, { dispatchNotes: e.target.value })
+                          }
+                          placeholder="Optional dispatch note (e.g., Bubble-wrapped, fragile)"
+                          className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs focus:outline-none focus:border-[#2E9A90]"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isBusy}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#2E9A90] px-4 py-2 text-xs font-semibold text-white hover:bg-[#247D75] disabled:opacity-60 shrink-0"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                          <span>{isBusy ? 'Dispatching...' : 'Dispatch Parcel'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+
+                {/* Week 9: Active Courier Tracking Banner + Timeline (SHIPPED / DELIVERED / RETURNED) */}
+                {shipment && (
+                  <div className="pt-3.5 border-t border-slate-100 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 border border-slate-200/80 px-3.5 py-2.5 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Truck className="h-4 w-4 text-[#2E9A90] shrink-0" />
+                        <span className="font-semibold text-slate-900">
+                          {shipment.courier_name}
+                        </span>
+                        <span className="text-slate-300" aria-hidden="true">
+                          ·
+                        </span>
+                        <span className="font-mono font-semibold text-slate-800">
+                          AWB {shipment.tracking_number}
+                        </span>
+                        <span className="text-slate-300" aria-hidden="true">
+                          ·
+                        </span>
+                        <span className="font-semibold text-indigo-700">
+                          {shipment.status_label}
+                        </span>
+                        {shipment.estimated_delivery_date && !shipment.delivered_at && (
+                          <>
+                            <span className="text-slate-300" aria-hidden="true">
+                              ·
+                            </span>
+                            <span className="text-slate-500">
+                              ETA{' '}
+                              <span className="font-mono">
+                                {shipment.estimated_delivery_date}
+                              </span>
+                            </span>
+                          </>
+                        )}
+                        {shipment.delivered_at && (
+                          <>
+                            <span className="text-slate-300" aria-hidden="true">
+                              ·
+                            </span>
+                            <span className="text-emerald-700 font-medium">
+                              Delivered{' '}
+                              <span className="font-mono">
+                                {new Date(shipment.delivered_at).toLocaleDateString(
+                                  'en-IN'
+                                )}
+                              </span>
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {shipment.tracking_url && (
+                          <a
+                            href={shipment.tracking_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2E9A90] hover:underline"
+                          >
+                            <span>Courier Link</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedTimeline((prev) => ({
+                              ...prev,
+                              [sub.id]: !prev[sub.id],
+                            }))
+                          }
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900"
+                        >
+                          <span>
+                            Timeline ({shipment.events?.length || 0})
+                          </span>
+                          {timelineOpen ? (
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {timelineOpen && shipment.events?.length > 0 && (
+                      <ol className="ml-2 border-l border-slate-200 pl-4 space-y-2.5 text-xs">
+                        {shipment.events.map((ev) => (
+                          <li key={ev.id} className="relative">
+                            <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-[#2E9A90] ring-2 ring-white" />
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-semibold text-slate-900">
+                                {ev.status_label}
+                              </span>
+                              {ev.location && (
+                                <>
+                                  <span className="text-slate-300" aria-hidden="true">
+                                    ·
+                                  </span>
+                                  <span className="text-slate-600">{ev.location}</span>
+                                </>
+                              )}
+                              <span className="text-slate-300" aria-hidden="true">
+                                ·
+                              </span>
+                              <span className="font-mono text-[11px] text-slate-400">
+                                {new Date(ev.event_timestamp).toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                            {ev.notes && (
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                {ev.notes}
+                              </p>
+                            )}
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+
+                    {/* Add Transit Event & Mark Delivered (when SHIPPED) */}
+                    {isShipped && (
+                      <div className="space-y-2.5 pt-1">
+                        <form
+                          onSubmit={(e) => handleAddEvent(e, sub)}
+                          className="grid grid-cols-1 sm:grid-cols-12 gap-2"
+                        >
+                          <select
+                            value={eventDraft.status}
+                            onChange={(e) =>
+                              updateEventDraft(sub.id, { status: e.target.value })
+                            }
+                            className="sm:col-span-3 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#2E9A90]"
+                          >
+                            {MILESTONE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            maxLength={120}
+                            value={eventDraft.location}
+                            onChange={(e) =>
+                              updateEventDraft(sub.id, { location: e.target.value })
+                            }
+                            placeholder="Hub / City (e.g., Jaipur Hub)"
+                            className="sm:col-span-3 rounded-lg border border-slate-200 px-2.5 py-2 text-xs focus:outline-none focus:border-[#2E9A90]"
+                          />
+                          <input
+                            type="text"
+                            maxLength={300}
+                            value={eventDraft.notes}
+                            onChange={(e) =>
+                              updateEventDraft(sub.id, { notes: e.target.value })
+                            }
+                            placeholder="Optional transit note..."
+                            className="sm:col-span-4 rounded-lg border border-slate-200 px-2.5 py-2 text-xs focus:outline-none focus:border-[#2E9A90]"
+                          />
+                          <button
+                            type="submit"
+                            disabled={isBusy}
+                            className="sm:col-span-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                          >
+                            Add Update
+                          </button>
+                        </form>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
+                          <input
+                            type="text"
+                            maxLength={300}
+                            value={deliveryNotesMap[sub.id] || ''}
+                            onChange={(e) =>
+                              setDeliveryNotesMap((prev) => ({
+                                ...prev,
+                                [sub.id]: e.target.value,
+                              }))
+                            }
+                            placeholder="Optional delivery confirmation note (starts 7-day return window)..."
+                            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs focus:outline-none focus:border-emerald-600"
+                          />
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => handleMarkDelivered(sub)}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-60 shrink-0"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>
+                              {isBusy ? 'Updating...' : 'Mark Delivered'}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Return summary indicator on delivered/returned suborders */}
+                    {sub.return_requests?.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                        <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                        <span>
+                          {sub.return_requests.length} return request
+                          {sub.return_requests.length === 1 ? '' : 's'} linked:{' '}
+                          {sub.return_requests
+                            .map((r) => `${r.return_number} (${r.status_label})`)
+                            .join(', ')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -333,3 +838,4 @@ export default function SellerOrdersTab({
     </div>
   );
 }
+

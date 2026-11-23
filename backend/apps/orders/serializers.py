@@ -40,6 +40,8 @@ class SellerSuborderStatusUpdateSerializer(serializers.Serializer):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    is_return_restricted = serializers.SerializerMethodField()
+
     class Meta:
         model = OrderItem
         fields = (
@@ -56,8 +58,14 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "quantity",
             "line_total",
             "customization_note",
+            "is_return_restricted",
         )
         read_only_fields = fields
+
+    def get_is_return_restricted(self, obj):
+        from apps.shipping.services import is_order_item_restricted_return
+
+        return is_order_item_restricted_return(obj)
 
 
 class SellerSuborderSerializer(serializers.ModelSerializer):
@@ -81,6 +89,10 @@ class SellerSuborderSerializer(serializers.ModelSerializer):
         source="parent_order.shipping_address_snapshot", read_only=True
     )
     seller_slug = serializers.CharField(source="seller.slug", read_only=True)
+    shipment = serializers.SerializerMethodField()
+    return_requests = serializers.SerializerMethodField()
+    return_window_ends_at = serializers.SerializerMethodField()
+    is_return_eligible = serializers.SerializerMethodField()
 
     class Meta:
         model = SellerSuborder
@@ -104,11 +116,43 @@ class SellerSuborderSerializer(serializers.ModelSerializer):
             "fulfilment_status",
             "seller_notes",
             "delivered_at",
+            "return_window_ends_at",
+            "is_return_eligible",
+            "shipment",
+            "return_requests",
             "items",
             "created_at",
             "updated_at",
         )
         read_only_fields = fields
+
+    def get_shipment(self, obj):
+        from apps.shipping.serializers import ShipmentSerializer
+
+        shipment = getattr(obj, "shipment", None)
+        if shipment is None:
+            return None
+        return ShipmentSerializer(shipment).data
+
+    def get_return_requests(self, obj):
+        from apps.shipping.serializers import ReturnRequestSerializer
+
+        returns_rel = getattr(obj, "return_requests", None)
+        if returns_rel is None:
+            return []
+        return ReturnRequestSerializer(returns_rel.all(), many=True).data
+
+    def get_return_window_ends_at(self, obj):
+        from apps.shipping.services import get_suborder_return_window_info
+
+        ends_at, _ = get_suborder_return_window_info(obj)
+        return ends_at.isoformat() if ends_at else None
+
+    def get_is_return_eligible(self, obj):
+        from apps.shipping.services import get_suborder_return_window_info
+
+        _, eligible = get_suborder_return_window_info(obj)
+        return eligible
 
 
 class PaymentSummarySerializer(serializers.ModelSerializer):

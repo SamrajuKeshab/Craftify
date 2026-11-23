@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, ShoppingCart } from 'lucide-react';
+import { ChevronDown, ChevronUp, RotateCcw, ShoppingCart, Truck } from 'lucide-react';
 import { useState } from 'react';
 import { formatINR } from '../utils/formatters';
 
@@ -6,6 +6,8 @@ const ORDER_STATUS_FILTERS = [
   'ALL',
   'CONFIRMED',
   'PROCESSING',
+  'SHIPPED',
+  'DELIVERED',
   'PENDING_PAYMENT',
   'PAYMENT_FAILED',
   'CANCELLED',
@@ -16,6 +18,7 @@ const STATUS_STYLE = {
   PROCESSING: 'bg-blue-50 text-blue-800 border-blue-200',
   SHIPPED: 'bg-indigo-50 text-indigo-800 border-indigo-200',
   DELIVERED: 'bg-teal-50 text-teal-800 border-teal-200',
+  RETURNED: 'bg-purple-50 text-purple-800 border-purple-200',
   PENDING_PAYMENT: 'bg-amber-50 text-amber-800 border-amber-200',
   PAYMENT_FAILED: 'bg-red-50 text-red-700 border-red-200',
   CANCELLED: 'bg-slate-100 text-slate-700 border-slate-200',
@@ -147,34 +150,79 @@ export default function AdminOrdersTab({
                       {order.suborders?.map((sub) => (
                         <div
                           key={sub.id}
-                          className="rounded-lg bg-slate-50 border border-slate-100 p-3.5 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                          className="rounded-lg bg-slate-50 border border-slate-100 p-3.5 text-xs space-y-2"
                         >
-                          <div>
-                            <p className="font-semibold text-slate-900">
-                              {sub.seller_shop_name_snapshot}{' '}
-                              <span className="font-mono text-slate-400">
-                                ({sub.suborder_number})
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <p className="font-semibold text-slate-900">
+                                {sub.seller_shop_name_snapshot}{' '}
+                                <span className="font-mono text-slate-400">
+                                  ({sub.suborder_number})
+                                </span>
+                              </p>
+                              <p className="text-slate-600 mt-0.5">
+                                {sub.items
+                                  ?.map(
+                                    (i) =>
+                                      `${i.product_title_snapshot} × ${i.quantity}`
+                                  )
+                                  .join(', ')}
+                              </p>
+                            </div>
+                            <div className="text-right font-mono tabular-nums space-y-0.5">
+                              <p className="font-semibold text-slate-800">
+                                Subtotal {formatINR(Number(sub.subtotal_amount))} · Comm{' '}
+                                {formatINR(Number(sub.commission_amount))}
+                              </p>
+                              <p className="text-teal-700 font-semibold">
+                                Net Seller {formatINR(Number(sub.net_seller_amount))} ·{' '}
+                                {sub.fulfilment_status}
+                              </p>
+                            </div>
+                          </div>
+
+                          {(sub.shipment || sub.delivered_at) && (
+                            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/70 text-[11px] text-slate-600">
+                              <Truck className="h-3.5 w-3.5 text-[#2E9A90] shrink-0" />
+                              {sub.shipment && (
+                                <span>
+                                  <strong className="text-slate-800">
+                                    {sub.shipment.courier_name}
+                                  </strong>{' '}
+                                  · AWB{' '}
+                                  <span className="font-mono font-semibold">
+                                    {sub.shipment.tracking_number}
+                                  </span>{' '}
+                                  · {sub.shipment.status_label}
+                                </span>
+                              )}
+                              {sub.delivered_at && (
+                                <span className="text-emerald-700 font-medium">
+                                  · Delivered{' '}
+                                  <span className="font-mono">
+                                    {new Date(sub.delivered_at).toLocaleDateString(
+                                      'en-IN'
+                                    )}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {sub.return_requests?.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-amber-900">
+                              <RotateCcw className="h-3.5 w-3.5 text-amber-700 shrink-0" />
+                              <span>
+                                Returns:{' '}
+                                {sub.return_requests
+                                  .map(
+                                    (ret) =>
+                                      `${ret.return_number} · ${ret.status_label} · ${formatINR(Number(ret.refund_amount))}`
+                                  )
+                                  .join(' | ')}
                               </span>
-                            </p>
-                            <p className="text-slate-600 mt-0.5">
-                              {sub.items
-                                ?.map(
-                                  (i) =>
-                                    `${i.product_title_snapshot} × ${i.quantity}`
-                                )
-                                .join(', ')}
-                            </p>
-                          </div>
-                          <div className="text-right font-mono tabular-nums space-y-0.5">
-                            <p className="font-semibold text-slate-800">
-                              Subtotal {formatINR(Number(sub.subtotal_amount))} · Comm{' '}
-                              {formatINR(Number(sub.commission_amount))}
-                            </p>
-                            <p className="text-teal-700 font-semibold">
-                              Net Seller {formatINR(Number(sub.net_seller_amount))} ·{' '}
-                              {sub.fulfilment_status}
-                            </p>
-                          </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

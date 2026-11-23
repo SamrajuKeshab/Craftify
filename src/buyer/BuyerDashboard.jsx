@@ -1,11 +1,16 @@
 import {
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
+  Copy,
+  ExternalLink,
   Heart,
   Image as ImageIcon,
   MapPin,
   Package,
+  RotateCcw,
   Shield,
   ShoppingBag,
   Store,
@@ -26,8 +31,23 @@ import {
 } from '../services/sellerService';
 import { formatINR } from '../utils/formatters';
 import BuyerAddressesTab from './BuyerAddressesTab';
+import BuyerReturnModal from './BuyerReturnModal';
 
 const VALID_BUYER_TABS = new Set(['orders', 'wishlist', 'addresses', 'security']);
+
+const RETURN_BADGE_STYLES = {
+  REQUESTED: 'bg-amber-50 text-amber-800 border-amber-200',
+  APPROVED: 'bg-blue-50 text-blue-800 border-blue-200',
+  PICKED_UP: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+  COMPLETED: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  REJECTED: 'bg-red-50 text-red-700 border-red-200',
+};
+
+function getReturnDaysLeft(endsAtIso) {
+  if (!endsAtIso) return 0;
+  const diffMs = new Date(endsAtIso).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+}
 
 export default function BuyerDashboard() {
   const { user, refreshUser } = useAuth();
@@ -49,11 +69,13 @@ export default function BuyerDashboard() {
   const [sellerStatus, setSellerStatus] = useState(null);
   const [busyProductId, setBusyProductId] = useState(null);
 
-  // Week 8 Live PostgreSQL Buyer Orders
+  // Week 8 & 9 Live PostgreSQL Buyer Orders, Shipments & Returns
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
   const [orderFeedback, setOrderFeedback] = useState(null);
+  const [expandedShipments, setExpandedShipments] = useState({});
+  const [returnTarget, setReturnTarget] = useState(null);
 
   useEffect(() => {
     if (requestedTab && VALID_BUYER_TABS.has(requestedTab)) {
@@ -126,6 +148,25 @@ export default function BuyerDashboard() {
     } finally {
       setCancellingOrderId(null);
     }
+  };
+
+  const handleCopyTracking = async (trackingNumber) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(trackingNumber);
+        showToast(`Tracking number ${trackingNumber} copied.`);
+      }
+    } catch {
+      showToast(`AWB: ${trackingNumber}`);
+    }
+  };
+
+  const handleReturnSubmitted = async (res) => {
+    setReturnTarget(null);
+    const msg = res?.detail || 'Return request submitted to studio.';
+    setOrderFeedback({ type: 'success', text: msg });
+    showToast(msg);
+    await loadBuyerOrders();
   };
 
   const navItems = [
@@ -389,59 +430,327 @@ export default function BuyerDashboard() {
                     </div>
                   </div>
 
-                  <div className="space-y-2.5">
-                    {(order.suborders || []).map((sub) => (
-                      <div
-                        key={sub.id}
-                        className="rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-xs space-y-2"
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div>
-                            <p className="font-semibold text-slate-900">
-                              {sub.seller_shop_name_snapshot}{' '}
-                              <span className="font-mono text-slate-400">
-                                ({sub.suborder_number})
-                              </span>
-                            </p>
-                            {sub.seller_notes && (
-                              <p className="text-[11px] text-slate-500 mt-0.5">
-                                Studio update: {sub.seller_notes}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-teal-700 font-semibold">
-                            <Truck className="h-3.5 w-3.5 shrink-0" />
-                            <span>{sub.fulfilment_status}</span>
-                          </div>
-                        </div>
+                  <div className="space-y-3">
+                    {(order.suborders || []).map((sub) => {
+                      const shipment = sub.shipment;
+                      const isTimelineOpen = Boolean(expandedShipments[sub.id]);
+                      const subReturns = sub.return_requests || [];
+                      const daysLeft = getReturnDaysLeft(sub.return_window_ends_at);
+                      const isDelivered = sub.fulfilment_status === 'DELIVERED';
 
-                        <div className="space-y-1.5 pt-1 border-t border-slate-200/70">
-                          {(sub.items || []).map((item) => (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between gap-3 text-slate-700"
-                            >
-                              <div className="min-w-0">
-                                <span className="font-medium text-slate-800">
-                                  {item.product_title_snapshot}
-                                </span>{' '}
-                                <span className="text-slate-500">
-                                  ({item.variant_label_snapshot}) × {item.quantity}
+                      return (
+                        <div
+                          key={sub.id}
+                          className="rounded-lg bg-slate-50 border border-slate-100 px-4 py-3 text-xs space-y-2.5"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <p className="font-semibold text-slate-900">
+                                {sub.seller_shop_name_snapshot}{' '}
+                                <span className="font-mono text-slate-400">
+                                  ({sub.suborder_number})
                                 </span>
-                                {item.customization_note && (
-                                  <p className="text-[11px] text-amber-800 mt-0.5">
-                                    Note: {item.customization_note}
-                                  </p>
-                                )}
-                              </div>
-                              <span className="font-mono font-semibold text-slate-800 tabular-nums shrink-0">
-                                {formatINR(Number(item.line_total))}
-                              </span>
+                              </p>
+                              {sub.seller_notes && (
+                                <p className="text-[11px] text-slate-500 mt-0.5">
+                                  Studio update: {sub.seller_notes}
+                                </p>
+                              )}
                             </div>
-                          ))}
+                            <div className="flex flex-wrap items-center gap-2">
+                              {isDelivered && (
+                                <span
+                                  className={`text-[11px] font-medium ${
+                                    sub.is_return_eligible
+                                      ? 'text-emerald-700'
+                                      : 'text-slate-400'
+                                  }`}
+                                >
+                                  {sub.is_return_eligible
+                                    ? `Return window open · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left`
+                                    : '7-day return window closed'}
+                                </span>
+                              )}
+                              <div className="flex items-center gap-1.5 text-teal-700 font-semibold">
+                                <Truck className="h-3.5 w-3.5 shrink-0" />
+                                <span>{sub.fulfilment_status}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Week 9: Courier & AWB Tracking Strip + Expandable Timeline */}
+                          {shipment && (
+                            <div className="rounded-lg bg-white border border-slate-200/80 px-3 py-2.5 space-y-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                                  <span className="font-semibold text-slate-900">
+                                    {shipment.courier_name}
+                                  </span>
+                                  <span className="text-slate-300" aria-hidden="true">
+                                    ·
+                                  </span>
+                                  <span className="font-mono font-semibold text-slate-700">
+                                    AWB {shipment.tracking_number}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleCopyTracking(shipment.tracking_number)
+                                    }
+                                    aria-label="Copy AWB tracking number"
+                                    className="inline-flex items-center gap-0.5 text-slate-500 hover:text-[#2E9A90] transition-colors"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </button>
+                                  <span className="text-slate-300" aria-hidden="true">
+                                    ·
+                                  </span>
+                                  <span className="font-semibold text-indigo-700">
+                                    {shipment.status_label}
+                                  </span>
+                                  {shipment.estimated_delivery_date &&
+                                    !shipment.delivered_at && (
+                                      <>
+                                        <span
+                                          className="text-slate-300"
+                                          aria-hidden="true"
+                                        >
+                                          ·
+                                        </span>
+                                        <span className="text-slate-500">
+                                          ETA{' '}
+                                          <span className="font-mono">
+                                            {shipment.estimated_delivery_date}
+                                          </span>
+                                        </span>
+                                      </>
+                                    )}
+                                  {shipment.delivered_at && (
+                                    <>
+                                      <span
+                                        className="text-slate-300"
+                                        aria-hidden="true"
+                                      >
+                                        ·
+                                      </span>
+                                      <span className="text-emerald-700 font-medium">
+                                        Delivered{' '}
+                                        <span className="font-mono">
+                                          {new Date(
+                                            shipment.delivered_at
+                                          ).toLocaleDateString('en-IN')}
+                                        </span>
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                  {shipment.tracking_url && (
+                                    <a
+                                      href={shipment.tracking_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#2E9A90] hover:underline"
+                                    >
+                                      <span>Track on Courier</span>
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  )}
+                                  {shipment.events?.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setExpandedShipments((prev) => ({
+                                          ...prev,
+                                          [sub.id]: !prev[sub.id],
+                                        }))
+                                      }
+                                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900"
+                                    >
+                                      <span>
+                                        {isTimelineOpen
+                                          ? 'Hide Timeline'
+                                          : `Updates (${shipment.events.length})`}
+                                      </span>
+                                      {isTimelineOpen ? (
+                                        <ChevronUp className="h-3.5 w-3.5" />
+                                      ) : (
+                                        <ChevronDown className="h-3.5 w-3.5" />
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {isTimelineOpen && shipment.events?.length > 0 && (
+                                <ol className="ml-2 pt-2 border-t border-slate-100 border-l border-slate-200 pl-4 space-y-2 text-[11px]">
+                                  {shipment.events.map((ev) => (
+                                    <li key={ev.id} className="relative">
+                                      <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-[#2E9A90] ring-2 ring-white" />
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="font-semibold text-slate-900">
+                                          {ev.status_label}
+                                        </span>
+                                        {ev.location && (
+                                          <>
+                                            <span
+                                              className="text-slate-300"
+                                              aria-hidden="true"
+                                            >
+                                              ·
+                                            </span>
+                                            <span className="text-slate-600">
+                                              {ev.location}
+                                            </span>
+                                          </>
+                                        )}
+                                        <span
+                                          className="text-slate-300"
+                                          aria-hidden="true"
+                                        >
+                                          ·
+                                        </span>
+                                        <span className="font-mono text-slate-400">
+                                          {new Date(
+                                            ev.event_timestamp
+                                          ).toLocaleString('en-IN')}
+                                        </span>
+                                      </div>
+                                      {ev.notes && (
+                                        <p className="text-slate-500 mt-0.5">
+                                          {ev.notes}
+                                        </p>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ol>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Line Items + Per-Item 7-Day Request Return Button */}
+                          <div className="space-y-2 pt-1 border-t border-slate-200/70">
+                            {(sub.items || []).map((item) => {
+                              const hasOpenOrDoneReturn = subReturns.some(
+                                (r) =>
+                                  r.order_item_id === item.id &&
+                                  r.status !== 'REJECTED'
+                              );
+                              const canRequestReturn =
+                                sub.is_return_eligible && !hasOpenOrDoneReturn;
+
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="flex flex-wrap items-center justify-between gap-3 text-slate-700"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <span className="font-medium text-slate-800">
+                                      {item.product_title_snapshot}
+                                    </span>{' '}
+                                    <span className="text-slate-500">
+                                      ({item.variant_label_snapshot}) × {item.quantity}
+                                    </span>
+                                    {item.customization_note && (
+                                      <p className="text-[11px] text-amber-800 mt-0.5">
+                                        Note: {item.customization_note}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-3 shrink-0">
+                                    {canRequestReturn && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setReturnTarget({ item, suborder: sub })
+                                        }
+                                        className="inline-flex items-center gap-1 rounded-lg border border-[#D7C3B0] bg-[#FAF6F0] px-2.5 py-1 text-[11px] font-semibold text-[#8B4B28] hover:bg-[#8B4B28] hover:text-white transition-colors"
+                                      >
+                                        <RotateCcw className="h-3 w-3" />
+                                        <span>Request Return</span>
+                                      </button>
+                                    )}
+                                    <span className="font-mono font-semibold text-slate-800 tabular-nums">
+                                      {formatINR(Number(item.line_total))}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Week 9: Linked Return Request Status Cards */}
+                          {subReturns.length > 0 && (
+                            <div className="space-y-2 pt-2 border-t border-slate-200/70">
+                              {subReturns.map((ret) => (
+                                <div
+                                  key={ret.id}
+                                  className="rounded-lg bg-white border border-slate-200/80 p-3 space-y-1.5 text-[11px]"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      <RotateCcw className="h-3.5 w-3.5 text-[#8B4B28] shrink-0" />
+                                      <span className="font-mono font-bold text-slate-900">
+                                        {ret.return_number}
+                                      </span>
+                                      <span
+                                        className={`rounded border px-1.5 py-0.5 font-semibold ${
+                                          RETURN_BADGE_STYLES[ret.status] ||
+                                          'bg-slate-100 text-slate-700 border-slate-200'
+                                        }`}
+                                      >
+                                        {ret.status_label}
+                                      </span>
+                                      <span className="text-slate-500">
+                                        · {ret.reason_label}
+                                      </span>
+                                    </div>
+                                    <span className="font-mono font-semibold text-slate-900 tabular-nums">
+                                      Est. Refund {formatINR(Number(ret.refund_amount))}
+                                    </span>
+                                  </div>
+
+                                  <p className="text-slate-600">
+                                    {ret.product_title} ({ret.variant_label}) ×{' '}
+                                    {ret.quantity}
+                                  </p>
+
+                                  {ret.seller_response_note && (
+                                    <p className="rounded bg-slate-50 border border-slate-100 px-2.5 py-1.5 text-slate-700">
+                                      <strong>Studio Response:</strong>{' '}
+                                      {ret.seller_response_note}
+                                    </p>
+                                  )}
+
+                                  {ret.evidence_urls?.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                      {ret.evidence_urls.map((url, idx) => (
+                                        <a
+                                          key={url}
+                                          href={url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="h-12 w-12 rounded-md overflow-hidden border border-slate-200 block"
+                                        >
+                                          <img
+                                            src={url}
+                                            alt={`Evidence ${idx + 1}`}
+                                            referrerPolicy="no-referrer"
+                                            className="h-full w-full object-cover"
+                                          />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -574,6 +883,15 @@ export default function BuyerDashboard() {
       {activeTab === 'addresses' && <BuyerAddressesTab />}
 
       {activeTab === 'security' && <AccountSecurityPanel />}
+
+      {returnTarget && (
+        <BuyerReturnModal
+          item={returnTarget.item}
+          suborder={returnTarget.suborder}
+          onClose={() => setReturnTarget(null)}
+          onSubmitted={handleReturnSubmitted}
+        />
+      )}
     </DashboardShell>
   );
 }

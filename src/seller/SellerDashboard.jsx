@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Package,
   PlusSquare,
+  RotateCcw,
   Save,
   Settings,
   ShoppingCart,
@@ -37,9 +38,11 @@ import {
   fetchMySellerShop,
   updateMySellerShop,
 } from '../services/sellerService';
+import { fetchSellerReturns } from '../services/shippingService';
 import { formatINR, formatINRCompact } from '../utils/formatters';
 import SellerOrdersTab from './SellerOrdersTab';
 import SellerProductsTab from './SellerProductsTab';
+import SellerReturnsTab from './SellerReturnsTab';
 
 const EMPTY_SALES_6M = [
   { month: 'Jan', sales: 0 },
@@ -93,6 +96,12 @@ export default function SellerDashboard() {
   const [productsLoading, setProductsLoading] = useState(false);
   const [openComposerOnProductsTab, setOpenComposerOnProductsTab] = useState(false);
 
+  // Week 9 live Seller 7-Day Returns
+  const [returns, setReturns] = useState([]);
+  const [returnsPendingCount, setReturnsPendingCount] = useState(0);
+  const [returnStatusFilter, setReturnStatusFilter] = useState('ALL');
+  const [returnsLoading, setReturnsLoading] = useState(false);
+
   const loadSellerProducts = async (statusFilter = productStatusFilter) => {
     setProductsLoading(true);
     try {
@@ -127,17 +136,35 @@ export default function SellerDashboard() {
     }
   };
 
+  const loadSellerReturns = async (statusFilter = returnStatusFilter) => {
+    setReturnsLoading(true);
+    try {
+      const data = await fetchSellerReturns(statusFilter);
+      setReturns(data.results || []);
+      if (typeof data.pending_count === 'number') {
+        setReturnsPendingCount(data.pending_count);
+      }
+      return data.results || [];
+    } catch {
+      return [];
+    } finally {
+      setReturnsLoading(false);
+    }
+  };
+
   useEffect(() => {
     let active = true;
     async function loadInitialStudioData() {
       setShopLoading(true);
       try {
-        const [shopData, catData, prodData, suborderData] = await Promise.allSettled([
-          fetchMySellerShop(),
-          fetchPublicCategories(),
-          fetchSellerProducts('ALL'),
-          fetchSellerSuborders('ALL'),
-        ]);
+        const [shopData, catData, prodData, suborderData, returnData] =
+          await Promise.allSettled([
+            fetchMySellerShop(),
+            fetchPublicCategories(),
+            fetchSellerProducts('ALL'),
+            fetchSellerSuborders('ALL'),
+            fetchSellerReturns('ALL'),
+          ]);
         if (!active) return;
 
         const liveCategories =
@@ -160,6 +187,11 @@ export default function SellerDashboard() {
           ) {
             setSalesSeries(suborderData.value.sales_series);
           }
+        }
+
+        if (returnData.status === 'fulfilled' && returnData.value) {
+          setReturns(returnData.value.results || []);
+          setReturnsPendingCount(returnData.value.pending_count ?? 0);
         }
 
         if (shopData.status === 'fulfilled' && shopData.value) {
@@ -195,9 +227,11 @@ export default function SellerDashboard() {
       loadSellerProducts(productStatusFilter);
     } else if (activeTab === 'orders') {
       loadSellerSuborders(orderStatusFilter);
+    } else if (activeTab === 'returns') {
+      loadSellerReturns(returnStatusFilter);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, productStatusFilter, orderStatusFilter]);
+  }, [activeTab, productStatusFilter, orderStatusFilter, returnStatusFilter]);
 
   const handleSaveShop = async (e) => {
     e.preventDefault();
@@ -247,6 +281,12 @@ export default function SellerDashboard() {
       label: 'Orders',
       icon: ShoppingCart,
       badge: orderSummary.pending_count || undefined,
+    },
+    {
+      id: 'returns',
+      label: 'Returns',
+      icon: RotateCcw,
+      badge: returnsPendingCount || undefined,
     },
     { id: 'earnings', label: 'Earnings', icon: Wallet },
     { id: 'reviews', label: 'Reviews', icon: Star },
@@ -728,7 +768,7 @@ export default function SellerDashboard() {
         </div>
       )}
 
-      {/* Live Week 8 Seller Suborders Fulfilment Tab */}
+      {/* Live Week 8 & 9 Seller Suborders Fulfilment & Courier Dispatch Tab */}
       {activeTab === 'orders' && (
         <SellerOrdersTab
           suborders={suborders}
@@ -736,6 +776,22 @@ export default function SellerDashboard() {
           onStatusFilterChange={setOrderStatusFilter}
           loading={ordersLoading}
           onRefresh={() => loadSellerSuborders(orderStatusFilter)}
+        />
+      )}
+
+      {/* Live Week 9 Direct Seller 7-Day Returns Resolution Tab */}
+      {activeTab === 'returns' && (
+        <SellerReturnsTab
+          returns={returns}
+          statusFilter={returnStatusFilter}
+          onStatusFilterChange={setReturnStatusFilter}
+          loading={returnsLoading}
+          onRefresh={() =>
+            Promise.all([
+              loadSellerReturns(returnStatusFilter),
+              loadSellerSuborders(orderStatusFilter),
+            ])
+          }
         />
       )}
 
