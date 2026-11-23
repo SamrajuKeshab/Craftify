@@ -679,6 +679,27 @@ def process_admin_payout(
             },
         )
 
+    if new_status in (SellerPayout.Status.PAID, SellerPayout.Status.REJECTED):
+        from apps.notifications.models import Notification
+        from apps.notifications.services import create_notification
+
+        create_notification(
+            recipient=payout.seller.user,
+            category=Notification.Category.FINANCE,
+            title=(
+                f"Payout {payout.payout_number} Paid"
+                if new_status == SellerPayout.Status.PAID
+                else f"Payout {payout.payout_number} Rejected"
+            ),
+            message=(
+                f"₹{payout.amount} transferred to {payout.bank_account_masked} (UTR {clean_utr})."
+                if new_status == SellerPayout.Status.PAID
+                else f"₹{payout.amount} returned to your available balance. Reason: {clean_notes[:180]}"
+            ),
+            action_url="/seller",
+            metadata={"payout_number": payout.payout_number, "status": new_status},
+        )
+
     record_audit_log(
         actor=admin_user,
         action=f"ADMIN_PAYOUT_{new_status}",
@@ -774,6 +795,22 @@ def process_admin_refund(
             Payment.objects.filter(
                 order=order, status=Payment.Status.CAPTURED
             ).update(status=Payment.Status.REFUNDED)
+
+    if new_status == RefundRecord.Status.PROCESSED:
+        from apps.notifications.models import Notification
+        from apps.notifications.services import create_notification
+
+        create_notification(
+            recipient=refund.buyer,
+            category=Notification.Category.FINANCE,
+            title=f"Refund {refund.refund_number} Processed",
+            message=(
+                f"Your refund of ₹{refund.amount} for order {refund.order.order_number} "
+                f"has been processed (Ref {clean_ref})."
+            ),
+            action_url="/buyer",
+            metadata={"refund_number": refund.refund_number},
+        )
 
     record_audit_log(
         actor=admin_user,

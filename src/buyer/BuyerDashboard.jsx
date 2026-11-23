@@ -13,6 +13,7 @@ import {
   RotateCcw,
   Shield,
   ShoppingBag,
+  Star,
   Store,
   Truck,
   XCircle,
@@ -25,6 +26,7 @@ import EmailVerificationBanner from '../components/dashboards/EmailVerificationB
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { cancelBuyerOrder, fetchBuyerOrders } from '../services/ordersService';
+import { fetchBuyerReviews } from '../services/reviewsService';
 import {
   extractServiceError,
   fetchMySellerApplicationStatus,
@@ -32,6 +34,7 @@ import {
 import { formatINR } from '../utils/formatters';
 import BuyerAddressesTab from './BuyerAddressesTab';
 import BuyerReturnModal from './BuyerReturnModal';
+import BuyerReviewModal from './BuyerReviewModal';
 
 const VALID_BUYER_TABS = new Set(['orders', 'wishlist', 'addresses', 'security']);
 
@@ -76,6 +79,8 @@ export default function BuyerDashboard() {
   const [orderFeedback, setOrderFeedback] = useState(null);
   const [expandedShipments, setExpandedShipments] = useState({});
   const [returnTarget, setReturnTarget] = useState(null);
+  const [reviewTarget, setReviewTarget] = useState(null);
+  const [reviewedItemsMap, setReviewedItemsMap] = useState({});
 
   useEffect(() => {
     if (requestedTab && VALID_BUYER_TABS.has(requestedTab)) {
@@ -116,8 +121,20 @@ export default function BuyerDashboard() {
   const loadBuyerOrders = async () => {
     setOrdersLoading(true);
     try {
-      const data = await fetchBuyerOrders();
-      setOrders(data.results || []);
+      const [ordersData, reviewsData] = await Promise.allSettled([
+        fetchBuyerOrders(),
+        fetchBuyerReviews(),
+      ]);
+      if (ordersData.status === 'fulfilled' && ordersData.value) {
+        setOrders(ordersData.value.results || []);
+      }
+      if (reviewsData.status === 'fulfilled' && reviewsData.value) {
+        const map = {};
+        for (const rev of reviewsData.value.results || []) {
+          map[rev.order_item_id] = rev;
+        }
+        setReviewedItemsMap(map);
+      }
     } catch {
       // Non-blocking fallback
     } finally {
@@ -131,6 +148,16 @@ export default function BuyerDashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  const handleReviewSubmitted = async (res) => {
+    setReviewTarget(null);
+    setOrderFeedback({
+      type: 'success',
+      text: res?.detail || 'Verified review published!',
+    });
+    showToast(res?.detail || 'Verified review published!');
+    await loadBuyerOrders();
+  };
 
   const handleCancelOrder = async (orderId) => {
     setCancellingOrderId(orderId);
@@ -659,14 +686,34 @@ export default function BuyerDashboard() {
                                     )}
                                   </div>
 
-                                  <div className="flex items-center gap-3 shrink-0">
+                                  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                                    {isDelivered &&
+                                      (reviewedItemsMap[item.id] ? (
+                                        <span className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-amber-700">
+                                          <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
+                                          <span>
+                                            Reviewed {reviewedItemsMap[item.id].rating}/5
+                                          </span>
+                                        </span>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setReviewTarget({ item, suborder: sub })
+                                          }
+                                          className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-600 hover:text-white transition-colors whitespace-nowrap"
+                                        >
+                                          <Star className="h-3 w-3" />
+                                          <span>Write Review</span>
+                                        </button>
+                                      ))}
                                     {canRequestReturn && (
                                       <button
                                         type="button"
                                         onClick={() =>
                                           setReturnTarget({ item, suborder: sub })
                                         }
-                                        className="inline-flex items-center gap-1 rounded-lg border border-[#D7C3B0] bg-[#FAF6F0] px-2.5 py-1 text-[11px] font-semibold text-[#8B4B28] hover:bg-[#8B4B28] hover:text-white transition-colors"
+                                        className="inline-flex items-center gap-1 rounded-lg border border-[#D7C3B0] bg-[#FAF6F0] px-2.5 py-1 text-[11px] font-semibold text-[#8B4B28] hover:bg-[#8B4B28] hover:text-white transition-colors whitespace-nowrap"
                                       >
                                         <RotateCcw className="h-3 w-3" />
                                         <span>Request Return</span>
@@ -890,6 +937,14 @@ export default function BuyerDashboard() {
           suborder={returnTarget.suborder}
           onClose={() => setReturnTarget(null)}
           onSubmitted={handleReturnSubmitted}
+        />
+      )}
+
+      {reviewTarget && (
+        <BuyerReviewModal
+          target={reviewTarget}
+          onClose={() => setReviewTarget(null)}
+          onSubmitted={handleReviewSubmitted}
         />
       )}
     </DashboardShell>

@@ -25,6 +25,11 @@ from apps.finance.urls import (
     admin_finance_urlpatterns,
     finance_urlpatterns,
 )
+from apps.notifications.views import notifications_urlpatterns
+from apps.reviews.views import (
+    admin_reviews_urlpatterns,
+    reviews_urlpatterns,
+)
 from apps.sellers.urls import admin_urlpatterns, seller_urlpatterns
 from common.views import HealthCheckView
 
@@ -40,6 +45,9 @@ urlpatterns = [
     path("api/v1/admin/", include(admin_orders_urlpatterns)),
     path("api/v1/admin/", include(admin_shipping_urlpatterns)),
     path("api/v1/admin/", include(admin_finance_urlpatterns)),
+    path("api/v1/admin/", include(admin_reviews_urlpatterns)),
+    path("api/v1/", include(notifications_urlpatterns)),
+    path("api/v1/", include(reviews_urlpatterns)),
     path("api/v1/", include(finance_urlpatterns)),
     path("api/v1/", include(shipping_urlpatterns)),
     path("api/v1/", include(orders_urlpatterns)),

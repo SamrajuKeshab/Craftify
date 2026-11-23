@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import CraftifyLogo from '../common/CraftifyLogo';
+import NotificationBell from '../common/NotificationBell';
 
 /**
  * Shared dark charcoal-slate sidebar (#242B33) + signature teal active item (#2E9A90)
@@ -158,6 +159,7 @@ export default function DashboardShell({
                 <Search className="h-4 w-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             )}
+            <NotificationBell />
             {rightBadge}
           </div>
         </header>

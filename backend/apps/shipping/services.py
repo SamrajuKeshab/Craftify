@@ -161,6 +161,21 @@ def dispatch_seller_suborder(
     suborder.save(update_fields=["fulfilment_status", "updated_at"])
     _sync_parent_order_status(suborder.parent_order)
 
+    from apps.notifications.models import Notification
+    from apps.notifications.services import create_notification
+
+    create_notification(
+        recipient=suborder.parent_order.buyer,
+        category=Notification.Category.SHIPPING,
+        title=f"Craft shipped via {shipment.courier_name}",
+        message=(
+            f"{seller_profile.shop_name} dispatched {suborder.suborder_number} "
+            f"(AWB {shipment.tracking_number})."
+        ),
+        action_url="/buyer",
+        metadata={"suborder_number": suborder.suborder_number},
+    )
+
     record_audit_log(
         actor=seller_profile.user,
         action="SUBORDER_SHIPPED",
@@ -362,6 +377,21 @@ def mark_suborder_delivered(
         request=request,
     )
 
+    from apps.notifications.models import Notification
+    from apps.notifications.services import create_notification
+
+    create_notification(
+        recipient=suborder.parent_order.buyer,
+        category=Notification.Category.SHIPPING,
+        title=f"Order delivered · {suborder.suborder_number}",
+        message=(
+            f"Your handmade craft from {seller_profile.shop_name} has arrived. "
+            "You can now submit a verified review or request a 7-day return if needed."
+        ),
+        action_url="/buyer",
+        metadata={"suborder_number": suborder.suborder_number},
+    )
+
     record_audit_log(
         actor=seller_profile.user,
         action="SUBORDER_DELIVERED",
@@ -506,6 +536,21 @@ def create_buyer_return_request(
         status=ReturnRequest.Status.REQUESTED,
     )
 
+    from apps.notifications.models import Notification
+    from apps.notifications.services import create_notification
+
+    create_notification(
+        recipient=suborder.seller.user,
+        category=Notification.Category.RETURN,
+        title=f"New 7-day return request · {ret.return_number}",
+        message=(
+            f"@{buyer.username} requested a return for '{order_item.product_title_snapshot}' "
+            f"({ret.get_reason_display()})."
+        ),
+        action_url="/seller",
+        metadata={"return_number": ret.return_number},
+    )
+
     record_audit_log(
         actor=buyer,
         action="RETURN_REQUESTED",
@@ -640,6 +685,22 @@ def resolve_seller_return_request(
             actor=seller_profile.user,
             request=request,
         )
+
+    from apps.notifications.models import Notification
+    from apps.notifications.services import create_notification
+
+    create_notification(
+        recipient=ret.buyer,
+        category=Notification.Category.RETURN,
+        title=f"Return {ret.return_number} · {ret.get_status_display()}",
+        message=(
+            f"{seller_profile.shop_name} updated your return request to "
+            f"{ret.get_status_display()}."
+            + (f" Note: {clean_note[:160]}" if clean_note else "")
+        ),
+        action_url="/buyer",
+        metadata={"return_number": ret.return_number, "status": new_status},
+    )
 
     record_audit_log(
         actor=seller_profile.user,

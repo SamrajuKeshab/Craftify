@@ -50,12 +50,17 @@ import {
   toggleUserActive,
 } from '../services/sellerService';
 import { fetchAdminCoupons } from '../services/commerceService';
-import { fetchAdminFinance } from '../services/financeService';
+import {
+  fetchAdminAnalytics,
+  fetchAdminFinance,
+} from '../services/financeService';
 import {
   fetchAdminOrders,
   fetchAdminPayments,
 } from '../services/ordersService';
+import { fetchAdminReviews } from '../services/reviewsService';
 import { formatINR, formatINRCompact } from '../utils/formatters';
+import AdminAnalyticsTab from './AdminAnalyticsTab';
 import AdminCategoriesTab from './AdminCategoriesTab';
 import AdminCouponsTab from './AdminCouponsTab';
 import AdminFinanceTab from './AdminFinanceTab';
@@ -103,6 +108,9 @@ export default function AdminDashboard() {
   const [payoutStatusFilter, setPayoutStatusFilter] = useState('ALL');
   const [refundStatusFilter, setRefundStatusFilter] = useState('ALL');
   const [ledgerEntryFilter, setLedgerEntryFilter] = useState('ALL');
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [adminReviewsData, setAdminReviewsData] = useState(null);
+  const [reviewStatusFilter, setReviewStatusFilter] = useState('ALL');
 
   const [loading, setLoading] = useState(false);
   const [actionBusyId, setActionBusyId] = useState(null);
@@ -311,6 +319,28 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadAdminReports = async (
+    revStatus = reviewStatusFilter,
+    search = searchTerm
+  ) => {
+    setLoading(true);
+    try {
+      const [analyticsRes, reviewsRes] = await Promise.all([
+        fetchAdminAnalytics(),
+        fetchAdminReviews({ status: revStatus, search }),
+      ]);
+      setAnalyticsData(analyticsRes);
+      setAdminReviewsData(reviewsRes);
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: extractServiceError(err, 'Failed to load platform analytics & reviews.'),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboardOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -342,6 +372,8 @@ export default function AdminDashboard() {
         ledgerEntryFilter,
         searchTerm
       );
+    } else if (activeTab === 'reports') {
+      loadAdminReports(reviewStatusFilter, searchTerm);
     } else if (activeTab === 'audit') {
       loadAuditLogs();
     }
@@ -357,6 +389,7 @@ export default function AdminDashboard() {
     payoutStatusFilter,
     refundStatusFilter,
     ledgerEntryFilter,
+    reviewStatusFilter,
     searchTerm,
   ]);
 
@@ -1310,23 +1343,17 @@ export default function AdminDashboard() {
 
       {activeTab === 'settings' && <AccountSecurityPanel />}
 
+      {/* TAB 11: LIVE PLATFORM ANALYTICS & REVIEW MODERATION (WEEK 11) */}
       {activeTab === 'reports' && (
-        <div className="rounded-xl bg-white border border-slate-200/80 p-6">
-          <h2 className="text-lg font-bold text-slate-900">
-            Admin Reports &amp; Exports
-          </h2>
-          <p className="mt-1 text-sm text-slate-600">
-            No fake placeholder records are shown here. Deep analytics dashboards
-            and notification reports connect in Week 11 of our roadmap.
-          </p>
-          <button
-            type="button"
-            onClick={() => setActiveTab('dashboard')}
-            className="mt-4 rounded-lg bg-[#2E9A90] px-4 py-2 text-xs font-semibold text-white hover:bg-[#247D75]"
-          >
-            Back to Dashboard Overview
-          </button>
-        </div>
+        <AdminAnalyticsTab
+          analytics={analyticsData}
+          reviewsData={adminReviewsData}
+          reviewStatusFilter={reviewStatusFilter}
+          onReviewStatusFilterChange={setReviewStatusFilter}
+          loading={loading}
+          onRefresh={() => loadAdminReports(reviewStatusFilter, searchTerm)}
+          onFeedback={setFeedback}
+        />
       )}
     </DashboardShell>
   );

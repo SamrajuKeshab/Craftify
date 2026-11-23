@@ -68,3 +68,13 @@ export async function releaseLedgerHold(entryId, reason = '') {
   );
   return data;
 }
+
+export async function fetchSellerAnalytics() {
+  const { data } = await api.get('/seller/analytics/');
+  return data;
+}
+
+export async function fetchAdminAnalytics() {
+  const { data } = await api.get('/admin/analytics/');
+  return data;
+}

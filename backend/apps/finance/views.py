@@ -287,3 +287,37 @@ class AdminReleaseHoldView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class SellerAnalyticsView(APIView):
+    """GET /api/v1/seller/analytics/ — Real PostgreSQL studio analytics & top crafts."""
+
+    permission_classes = [IsApprovedSellerRole]
+
+    def get(self, request):
+        from apps.finance.analytics import compute_seller_studio_analytics
+
+        profile = _get_seller_profile_or_404(request.user)
+        if profile is None:
+            return Response(
+                {"detail": "Seller studio profile not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(
+            compute_seller_studio_analytics(profile),
+            status=status.HTTP_200_OK,
+        )
+
+
+class AdminAnalyticsView(APIView):
+    """GET /api/v1/admin/analytics/ — Real PostgreSQL marketplace analytics & charts."""
+
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        from apps.finance.analytics import compute_admin_platform_analytics
+
+        return Response(
+            compute_admin_platform_analytics(),
+            status=status.HTTP_200_OK,
+        )

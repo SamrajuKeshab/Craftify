@@ -8,6 +8,7 @@ import {
   Minus,
   Plus,
   ShieldCheck,
+  Star,
   Store,
   Truck,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ import {
   fetchPublicProductBySlug,
   normalizeStorefrontProduct,
 } from '../services/catalogService';
+import { fetchPublicProductReviews } from '../services/reviewsService';
 import { formatINR } from '../utils/formatters';
 
 export default function ProductDetailPage() {
@@ -28,6 +30,7 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  const [reviewsData, setReviewsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -43,17 +46,32 @@ export default function ProductDetailPage() {
       setLoading(true);
       setNotFound(false);
       try {
-        const data = await fetchPublicProductBySlug(slug);
+        const [data, revRes] = await Promise.allSettled([
+          fetchPublicProductBySlug(slug),
+          fetchPublicProductReviews(slug),
+        ]);
         if (!active) return;
-        const normalized = normalizeStorefrontProduct(data);
+        if (data.status !== 'fulfilled' || !data.value) {
+          setProduct(null);
+          setNotFound(true);
+          return;
+        }
+        const normalized = normalizeStorefrontProduct(data.value);
         setProduct(normalized);
         setActiveImageUrl(normalized.image || normalized.images?.[0]?.image_url || '');
         setSelectedVariant(normalized.variants?.[0] || 'Standard');
         setQuantity(1);
         setCustomizationNote('');
         setRelatedProducts(
-          (data.related_products || []).map(normalizeStorefrontProduct).filter(Boolean)
+          (data.value.related_products || [])
+            .map(normalizeStorefrontProduct)
+            .filter(Boolean)
         );
+        if (revRes.status === 'fulfilled' && revRes.value) {
+          setReviewsData(revRes.value);
+        } else {
+          setReviewsData(null);
+        }
       } catch {
         if (active) {
           setProduct(null);
@@ -513,6 +531,131 @@ export default function ProductDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Week 11: Verified Buyer Reviews Section */}
+        <section className="mt-14 pt-10 border-t border-[#EAE1D5]">
+          <div className="flex flex-wrap items-baseline justify-between gap-3 mb-6">
+            <div>
+              <h2 className="font-serif text-2xl font-bold text-[#2C2018]">
+                Verified Buyer Reviews
+              </h2>
+              <p className="mt-1 text-xs text-[#6E5E52]">
+                Only customers whose craft order was delivered can post a review.
+              </p>
+            </div>
+            {reviewsData?.summary?.review_count > 0 && (
+              <div className="flex items-center gap-2 font-mono text-sm font-bold text-[#2C2018] tabular-nums">
+                <Star className="h-4 w-4 fill-amber-400 text-amber-500" />
+                <span>{reviewsData.summary.rating_avg} / 5.00</span>
+                <span className="text-[#8C7B6E] font-normal">
+                  ({reviewsData.summary.review_count})
+                </span>
+              </div>
+            )}
+          </div>
+
+          {!reviewsData || (reviewsData.results || []).length === 0 ? (
+            <div className="rounded-2xl bg-white border border-[#EAE1D5] p-8 text-center">
+              <Star className="mx-auto h-7 w-7 text-[#C9B7A2]" />
+              <p className="mt-2.5 text-sm font-semibold text-[#2C2018]">
+                No verified reviews for this craft yet
+              </p>
+              <p className="mt-1 text-xs text-[#6E5E52]">
+                After your order is delivered, you can rate this piece directly from My
+                Orders.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-4 rounded-2xl bg-white border border-[#EAE1D5] p-6 h-fit">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-4xl font-bold text-[#2C2018] tabular-nums">
+                    {reviewsData.summary.rating_avg}
+                  </span>
+                  <span className="text-xs text-[#6E5E52]">out of 5</span>
+                </div>
+                <p className="mt-1 text-xs text-[#6E5E52] font-mono tabular-nums">
+                  {reviewsData.summary.review_count} verified purchase review(s)
+                </p>
+                <div className="mt-4 space-y-2">
+                  {(reviewsData.summary.distribution || []).map((row) => {
+                    const pct =
+                      reviewsData.summary.review_count > 0
+                        ? Math.round(
+                            (row.count / reviewsData.summary.review_count) * 100
+                          )
+                        : 0;
+                    return (
+                      <div key={row.stars} className="flex items-center gap-2.5 text-xs">
+                        <span className="w-8 font-mono font-semibold text-[#4A3B31] tabular-nums">
+                          {row.stars} ★
+                        </span>
+                        <div className="flex-1 h-2 rounded-full bg-[#F3ECE2] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[#8B4B28]"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="w-8 text-right font-mono text-[#7A6A5E] tabular-nums">
+                          {row.count}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="lg:col-span-8 space-y-4">
+                {reviewsData.results.map((rev) => (
+                  <article
+                    key={rev.id}
+                    className="rounded-2xl bg-white border border-[#EAE1D5] p-5 space-y-2.5"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono font-bold text-amber-600 tabular-nums">
+                          {'★'.repeat(rev.rating)}
+                          {'☆'.repeat(5 - rev.rating)}
+                        </span>
+                        <span className="text-[#D4C3B0]">·</span>
+                        <span className="font-semibold text-[#2C2018]">
+                          {rev.buyer_name}
+                        </span>
+                        <span className="text-[#D4C3B0]">·</span>
+                        <span className="text-[#355E44] font-medium">
+                          Verified Purchase
+                        </span>
+                      </div>
+                      <span className="font-mono text-[11px] text-[#8C7B6E]">
+                        {new Date(rev.created_at).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                    {rev.title && (
+                      <h3 className="text-sm font-bold text-[#2C2018]">
+                        {rev.title}
+                      </h3>
+                    )}
+                    <p className="text-sm leading-relaxed text-[#524338]">
+                      {rev.comment}
+                    </p>
+                    {rev.seller_reply && (
+                      <div className="mt-3 rounded-xl bg-[#FAF6F0] border border-[#EAE1D5] px-4 py-3 text-xs">
+                        <p className="font-semibold text-[#8B4B28]">
+                          Response from {rev.seller_shop_name}
+                        </p>
+                        <p className="mt-1 text-[#4A3B31]">{rev.seller_reply}</p>
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Related Handmade Crafts */}
         {relatedProducts.length > 0 && (

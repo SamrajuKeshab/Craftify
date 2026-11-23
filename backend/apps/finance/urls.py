@@ -2,11 +2,13 @@
 from django.urls import path
 
 from apps.finance.views import (
+    AdminAnalyticsView,
     AdminFinanceOverviewView,
     AdminPayoutActionView,
     AdminRefundActionView,
     AdminReleaseHoldView,
     BuyerRefundListView,
+    SellerAnalyticsView,
     SellerFinanceOverviewView,
     SellerPayoutRequestView,
 )
@@ -23,6 +25,11 @@ finance_urlpatterns = [
         name="seller-payout-request",
     ),
     path(
+        "seller/analytics/",
+        SellerAnalyticsView.as_view(),
+        name="seller-analytics",
+    ),
+    path(
         "buyer/refunds/",
         BuyerRefundListView.as_view(),
         name="buyer-refund-list",
@@ -34,6 +41,11 @@ admin_finance_urlpatterns = [
         "finance/",
         AdminFinanceOverviewView.as_view(),
         name="admin-finance-overview",
+    ),
+    path(
+        "analytics/",
+        AdminAnalyticsView.as_view(),
+        name="admin-analytics",
     ),
     path(
         "finance/payouts/<uuid:pk>/action/",

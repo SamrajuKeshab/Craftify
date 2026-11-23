@@ -34,6 +34,7 @@ import {
 } from '../services/catalogService';
 import { fetchSellerFinance } from '../services/financeService';
 import { fetchSellerSuborders } from '../services/ordersService';
+import { fetchSellerReviews } from '../services/reviewsService';
 import {
   extractServiceError,
   fetchMySellerShop,
@@ -45,6 +46,7 @@ import SellerEarningsTab from './SellerEarningsTab';
 import SellerOrdersTab from './SellerOrdersTab';
 import SellerProductsTab from './SellerProductsTab';
 import SellerReturnsTab from './SellerReturnsTab';
+import SellerReviewsTab from './SellerReviewsTab';
 
 const EMPTY_SALES_6M = [
   { month: 'Jan', sales: 0 },
@@ -109,6 +111,11 @@ export default function SellerDashboard() {
   const [financeEntryFilter, setFinanceEntryFilter] = useState('ALL');
   const [financeLoading, setFinanceLoading] = useState(false);
 
+  // Week 11 live Seller Verified Reviews
+  const [reviewsData, setReviewsData] = useState(null);
+  const [reviewRatingFilter, setReviewRatingFilter] = useState('ALL');
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
   const loadSellerProducts = async (statusFilter = productStatusFilter) => {
     setProductsLoading(true);
     try {
@@ -169,6 +176,19 @@ export default function SellerDashboard() {
       return null;
     } finally {
       setFinanceLoading(false);
+    }
+  };
+
+  const loadSellerReviews = async (ratingFilter = reviewRatingFilter) => {
+    setReviewsLoading(true);
+    try {
+      const data = await fetchSellerReviews(ratingFilter);
+      setReviewsData(data);
+      return data;
+    } catch {
+      return null;
+    } finally {
+      setReviewsLoading(false);
     }
   };
 
@@ -251,6 +271,8 @@ export default function SellerDashboard() {
       loadSellerReturns(returnStatusFilter);
     } else if (activeTab === 'earnings') {
       loadSellerFinance(financeEntryFilter);
+    } else if (activeTab === 'reviews') {
+      loadSellerReviews(reviewRatingFilter);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -259,6 +281,7 @@ export default function SellerDashboard() {
     orderStatusFilter,
     returnStatusFilter,
     financeEntryFilter,
+    reviewRatingFilter,
   ]);
 
   const handleSaveShop = async (e) => {
@@ -853,21 +876,15 @@ export default function SellerDashboard() {
 
       {activeTab === 'settings' && <AccountSecurityPanel />}
 
+      {/* Live Week 11 Seller Verified Reviews & Studio Replies */}
       {activeTab === 'reviews' && (
-        <div className="rounded-xl bg-white border border-slate-200/80 p-6">
-          <h2 className="text-lg font-bold text-slate-900">Seller Reviews</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            No mock records are shown here. Verified buyer product reviews and
-            studio ratings connect in Week 11 of our roadmap.
-          </p>
-          <button
-            type="button"
-            onClick={() => setActiveTab('dashboard')}
-            className="mt-4 rounded-lg bg-[#2E9A90] px-4 py-2 text-xs font-semibold text-white hover:bg-[#247D75]"
-          >
-            Back to Seller Overview
-          </button>
-        </div>
+        <SellerReviewsTab
+          reviewsData={reviewsData}
+          ratingFilter={reviewRatingFilter}
+          onRatingFilterChange={setReviewRatingFilter}
+          loading={reviewsLoading}
+          onRefresh={() => loadSellerReviews(reviewRatingFilter)}
+        />
       )}
     </DashboardShell>
   );

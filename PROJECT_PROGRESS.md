@@ -3,8 +3,8 @@
 > **Purpose:** Living tracker for both the project owner (in VS Code / GitHub) and AI sessions. Read this file at the start of every new work session and update it after every completed module.
 
 **Last Updated:** 2026-11-23  
-**Current Milestone:** Week 10 Implemented & Ready for VS Code Verification (Immutable Financial Ledger, 7-Day Settlement Holds, Automated Refunds & Seller Bank Payouts)  
-**Next Module:** Week 11 — Verified Reviews, Notifications & Real DB Analytics Charts
+**Current Milestone:** Week 11 Implemented & Ready for VS Code Verification (Verified Purchase Reviews, Persistent In-App Notifications & Real PostgreSQL Analytics Charts)  
+**Next Module:** Week 12 — Full Security Audit (OWASP ASVS), Load/E2E Tests, Razorpay Live HTTPS Webhook & Vercel/Render Deployment
 
 ---
 
@@ -21,6 +21,7 @@
 | **Payments** | **Razorpay Prepaid** (server-side Order creation, constant-time HMAC-SHA256 verification & idempotent signed webhook; Test Mode keys active locally, live HTTPS webhook URL scheduled for Week 12 Render deploy) + **Cash on Delivery (COD)** (server-enforced ₹5,000 cap). |
 | **Shipping & Returns** | Free shipping on orders **≥ ₹999** (₹79 standard below ₹999). Sellers select Indian couriers + enter AWB tracking numbers & transit events. **7-day return window** post-delivery with optional buyer Cloudinary photo proof (up to 3 images); personalized/made-to-order items returnable only if damaged/defective/wrong; Sellers approve/reject/complete returns directly with optional restock. |
 | **Settlements, Refunds & Payouts** | Delivered suborders append immutable `SALE_CREDIT` (7-day settlement hold aligned with return window) and `PLATFORM_COMMISSION` entries. Completed returns & cancelled prepaid orders queue `RefundRecord` + proportional `REFUND_DEBIT`/`COMMISSION_REVERSAL`. Sellers withdraw cleared balance to verified masked bank/IFSC; Admin approves/pays with UTR reference or rejects (restoring balance via `PAYOUT_REVERSAL`), with optional early hold release. |
+| **Reviews, Notifications & Analytics** | Verified-purchase reviews strictly enforced 1-to-1 per delivered `OrderItem`, live studio `rating_avg` recalculation, seller replies, and Admin moderation (`PUBLISHED`/`HIDDEN`). Persistent per-user notification bell inbox wired across Buyer, Seller, and Admin dashboards. Real PostgreSQL analytics charts (GMV vs. Commission, Category Revenue, Payment Mix, Fulfilment Funnel, Top Studios). |
 | **Auth & Token Security** | `/login` shows **only** Username, Password, Forgot Password link, Login button, and Sign Up link (zero role buttons). `/sign-up` always creates a `BUYER` and redirects to `/` (Home Page). Short-lived JWT access token stored strictly in JS memory + rotating refresh token in `HttpOnly` cookie (via Vite `/api` same-origin proxy in dev). 5-failure/15-min lockout + DRF rate throttling. |
 | **Visual Design System** | Warm parchment storefront & cart (`#FAF6F0`, terracotta `#8B4B28`, Fraunces serif + Plus Jakarta Sans + JetBrains Mono) paired with dark charcoal-slate sidebar dashboards (`#242B33` + teal `#2E9A90` active state + `#F6F7F9` workspace). |
 
@@ -41,70 +42,72 @@
 | **7** | Persistent Cart, Wishlist, Admin Platform Coupons & Buyer Indian Address Book (`apps/commerce`) | Live & Verified | Live & Verified | 25/25 Django Tests OK + Build/Lint OK | **Done** |
 | **8** | Multi-Vendor Order Splitting, Atomic Stock Locking, Razorpay & COD (`apps/orders`) | Live & Verified | Live & Verified | 31/31 Django Tests OK + Razorpay Test Keys Active (Webhook HTTPS URL in Week 12) | **Done** |
 | **9** | Shipping, Indian Courier Tracking, Shipment Events & 7-Day Returns (`apps/shipping`) | Live & Verified | Live & Verified | 36/36 Django Tests OK + Verified Error-Free in VS Code | **Done** |
-| **10** | Financial Ledger, Category Commissions Settlement, Refunds & Seller Payouts (`apps/finance`) | Live (Run `makemigrations finance` + `migrate`) | Live & Wired | Build/Lint OK — Run `python manage.py test` in VS Code (41 tests) | **Ready to Verify** |
-| **11** | Verified Reviews, Notifications & Real DB Analytics Charts | Not Started | Baseline Charts Ready | Not Started | **Next Up** |
-| **12** | Full Security Audit (OWASP ASVS), Load/E2E Tests, Razorpay Live Webhook & Vercel/Render Deploy | Not Started | Not Started | Not Started | Pending |
+| **10** | Financial Ledger, Category Commissions Settlement, Refunds & Seller Payouts (`apps/finance`) | Live & Verified | Live & Verified | 41/41 Django Tests OK + Verified Error-Free in VS Code | **Done** |
+| **11** | Verified Reviews, In-App Notifications & Real DB Analytics Charts (`apps/reviews`, `apps/notifications`) | Live (Run `makemigrations reviews notifications` + `migrate`) | Live & Wired (Zero Placeholders Remaining) | Build/Lint OK — Run `python manage.py test` in VS Code (46 tests) | **Ready to Verify** |
+| **12** | Full Security Audit (OWASP ASVS), Load/E2E Tests, Razorpay Live Webhook & Vercel/Render Deploy | Not Started | Not Started | Not Started | **Next Up** |
 
 ---
 
 ## 3. Honest Reality Check: Live Backend vs. Upcoming Modules
 
-### Implemented & Connected to Live Django + PostgreSQL (Weeks 2–10)
+### Implemented & Connected to Live Django + PostgreSQL (Weeks 2–11)
 - **Auth & Security (`apps/accounts`)**: `/register/`, `/verify-email/`, `/resend-verification/`, `/login/`, `/token/refresh/` (`HttpOnly` cookie with single-flight client mutex), `/logout/`, `/logout-all/`, `/password/reset/`, `/password/reset/confirm/`, `/password/change/`, `/me/`.
 - **Seller Onboarding & Admin Governance (`apps/sellers`, `apps/audit`)**:
   - `POST /api/v1/sellers/apply/`, `GET /api/v1/sellers/application-status/`, `GET/PATCH /api/v1/sellers/shop/`, `GET /api/v1/sellers/documents/<uuid>/`.
   - `GET /api/v1/admin/dashboard/`, `GET /api/v1/admin/seller-applications/`, `POST /api/v1/admin/seller-applications/<uuid>/review/`, `GET /api/v1/admin/sellers/`, `POST /api/v1/admin/sellers/<uuid>/toggle-suspend/`, `GET /api/v1/admin/buyers/`, `POST /api/v1/admin/users/<uuid>/toggle-active/`, `GET /api/v1/admin/audit-logs/`.
 - **Catalog, Cloudinary Media, Moderation & Customer Storefront (`apps/catalog`)**:
-  - **Public Storefront Discovery**: `GET /api/v1/categories/`, `GET /api/v1/products/`, `GET /api/v1/products/<slug>/`, `GET /api/v1/shops/`, `GET /api/v1/shops/<slug>/`.
-  - **Admin Categories & Moderation**: `GET/POST /api/v1/admin/categories/`, `PATCH/DELETE /api/v1/admin/categories/<uuid>/`, `GET /api/v1/admin/products/`, `POST /api/v1/admin/products/<uuid>/moderate/`.
-  - **Seller Products & Cloudinary Uploads**: `GET/POST /api/v1/seller/products/`, `GET/PATCH/DELETE /api/v1/seller/products/<uuid>/`, `POST /api/v1/seller/products/<uuid>/images/`, `PATCH/DELETE /api/v1/seller/products/<uuid>/images/<uuid>/`.
+  - `GET /api/v1/categories/`, `GET /api/v1/products/`, `GET /api/v1/products/<slug>/`, `GET /api/v1/shops/`, `GET /api/v1/shops/<slug>/`.
+  - `GET/POST /api/v1/admin/categories/`, `PATCH/DELETE /api/v1/admin/categories/<uuid>/`, `GET /api/v1/admin/products/`, `POST /api/v1/admin/products/<uuid>/moderate/`.
+  - `GET/POST /api/v1/seller/products/`, `GET/PATCH/DELETE /api/v1/seller/products/<uuid>/`, `POST /api/v1/seller/products/<uuid>/images/`, `PATCH/DELETE /api/v1/seller/products/<uuid>/images/<uuid>/`.
 - **Persistent Cart, Wishlist, Platform Coupons & Buyer Addresses (`apps/commerce`)**:
   - `GET/POST /api/v1/buyer/addresses/`, `PATCH/DELETE /api/v1/buyer/addresses/<uuid>/`, `POST /api/v1/buyer/addresses/<uuid>/set-default/`.
   - `GET/DELETE /api/v1/cart/`, `POST /api/v1/cart/items/`, `PATCH/DELETE /api/v1/cart/items/<uuid>/`, `POST /api/v1/cart/apply-coupon/`, `DELETE /api/v1/cart/coupon/`, `POST /api/v1/coupons/validate/`.
   - `GET/POST /api/v1/wishlist/`, `POST /api/v1/wishlist/toggle/`, `DELETE /api/v1/wishlist/<uuid>/`, `POST /api/v1/wishlist/<uuid>/move-to-cart/`.
   - `GET/POST /api/v1/admin/coupons/`, `PATCH/DELETE /api/v1/admin/coupons/<uuid>/`.
 - **Multi-Vendor Orders, Stock Locking, Razorpay & COD (`apps/orders`)**:
-  - **Checkout & Razorpay**: `GET /api/v1/checkout/config/`, `POST /api/v1/checkout/`, `POST /api/v1/payments/razorpay/verify/`, `POST /api/v1/payments/razorpay/fail/`, `POST /api/v1/payments/razorpay/webhook/`.
-  - **Buyer Orders**: `GET /api/v1/buyer/orders/`, `GET /api/v1/buyer/orders/<uuid>/`, `POST /api/v1/buyer/orders/<uuid>/cancel/`.
-  - **Seller Suborders**: `GET /api/v1/seller/suborders/`, `PATCH /api/v1/seller/suborders/<uuid>/status/`.
-  - **Admin Oversight**: `GET /api/v1/admin/orders/`, `GET /api/v1/admin/payments/`.
+  - `GET /api/v1/checkout/config/`, `POST /api/v1/checkout/`, `POST /api/v1/payments/razorpay/verify/`, `POST /api/v1/payments/razorpay/fail/`, `POST /api/v1/payments/razorpay/webhook/`.
+  - `GET /api/v1/buyer/orders/`, `GET /api/v1/buyer/orders/<uuid>/`, `POST /api/v1/buyer/orders/<uuid>/cancel/`.
+  - `GET /api/v1/seller/suborders/`, `PATCH /api/v1/seller/suborders/<uuid>/status/`.
+  - `GET /api/v1/admin/orders/`, `GET /api/v1/admin/payments/`.
 - **Shipping, Courier Tracking & 7-Day Returns (`apps/shipping`)**:
   - `GET /api/v1/shipping/couriers/`, `POST /api/v1/seller/suborders/<uuid>/ship/`, `POST /api/v1/seller/suborders/<uuid>/events/`, `POST /api/v1/seller/suborders/<uuid>/deliver/`.
   - `GET/POST /api/v1/buyer/returns/`, `GET /api/v1/seller/returns/`, `PATCH /api/v1/seller/returns/<uuid>/resolve/`, `GET /api/v1/admin/returns/`.
 - **Financial Ledger, 7-Day Settlements, Refunds & Seller Payouts (`apps/finance`)**:
-  - **Seller Earnings & Payouts**: `GET /api/v1/seller/finance/`, `POST /api/v1/seller/finance/payouts/` (atomic balance lock preventing double-withdrawal, snapshotted masked bank & IFSC).
-  - **Buyer Refunds**: `GET /api/v1/buyer/refunds/`.
-  - **Admin Finance Governance**: `GET /api/v1/admin/finance/`, `POST /api/v1/admin/finance/payouts/<uuid>/action/` (`PROCESSING` / `PAID` with UTR / `REJECTED` with automatic `PAYOUT_REVERSAL`), `POST /api/v1/admin/finance/refunds/<uuid>/action/` (`PROCESSED` with gateway/UPI ref / `FAILED`), `POST /api/v1/admin/finance/ledger/<uuid>/release-hold/` (audited early release of 7-day settlement hold).
+  - `GET /api/v1/seller/finance/`, `POST /api/v1/seller/finance/payouts/`, `GET /api/v1/buyer/refunds/`.
+  - `GET /api/v1/admin/finance/`, `POST /api/v1/admin/finance/payouts/<uuid>/action/`, `POST /api/v1/admin/finance/refunds/<uuid>/action/`, `POST /api/v1/admin/finance/ledger/<uuid>/release-hold/`.
+- **Verified Reviews, Notifications & Real DB Analytics (`apps/reviews`, `apps/notifications`, `apps/finance/analytics.py`)**:
+  - **Reviews**: `GET /api/v1/products/<slug>/reviews/`, `GET/POST /api/v1/buyer/reviews/`, `GET /api/v1/seller/reviews/`, `POST /api/v1/seller/reviews/<uuid>/reply/`, `GET /api/v1/admin/reviews/`, `POST /api/v1/admin/reviews/<uuid>/moderate/`.
+  - **Notifications**: `GET /api/v1/notifications/`, `POST /api/v1/notifications/<uuid>/read/`, `POST /api/v1/notifications/read-all/` (automatically dispatched on ship, deliver, return request/resolution, payout paid/rejected, refund processed, review posted, and studio reply).
+  - **Real DB Analytics**: `GET /api/v1/admin/analytics/`, `GET /api/v1/seller/analytics/`.
 
-### Scheduled Upcoming Modules (Weeks 11–12)
-- Verified reviews, notifications & deep analytics (`apps/reviews`, `apps/notifications` — **Week 11**).
-- Full OWASP ASVS security audit, load/E2E tests, live Razorpay HTTPS webhook (`RAZORPAY_WEBHOOK_SECRET`), and Vercel/Render deployment (**Week 12**).
+### Final Module (Week 12)
+- Full OWASP ASVS security audit, load/E2E hardening, live Razorpay HTTPS webhook (`RAZORPAY_WEBHOOK_SECRET`), and Vercel/Render production deployment (**Week 12**).
 
 ---
 
-## 4. VS Code Local Verification Checklist (Week 10)
+## 4. VS Code Local Verification Checklist (Week 11)
 
 After pushing to GitHub and running `git pull origin main` in VS Code (no extra `pip install` or `npm install` needed):
 
-- [ ] Generate and apply the new `finance` PostgreSQL migration:
+- [ ] Generate and apply the new `notifications` and `reviews` PostgreSQL migrations:
   ```powershell
   cd backend
-  python manage.py makemigrations finance
+  python manage.py makemigrations notifications reviews
   python manage.py migrate
   ```
-- [ ] Run the full automated Django test suite (**41 tests total**: 36 existing + 5 new Week 10 tests covering delivery ledger credits & 7-day settlement holds, completed return refund & proportional commission reversal, seller payout withdrawal + overspend/double-withdrawal blocking + UTR paid & rejected balance restoration, prepaid order cancellation refund, and RBAC/cross-seller isolation):
+- [ ] Run the full automated Django test suite (**46 tests total**: 41 existing + 5 new Week 11 tests covering verified-purchase review delivery gate & duplicate prevention, seller reply & cross-seller isolation, Admin review moderation & rating recalculation, per-user notifications inbox & isolation, and Admin/Seller real DB analytics endpoints):
   ```powershell
   python manage.py test
   ```
 - [ ] Start Django (`python manage.py runserver`) and React (`npm run dev`) and verify end-to-end:
-  1. **Delivery Settlement Credit**: Deliver a suborder in **Seller Dashboard → Orders** → open **Seller Dashboard → Earnings** → verify **Pending Settlement Hold** shows the exact net INR amount (after category commission) with `Hold · Releases <date + 7 days>` in the ledger.
-  2. **Admin Early Hold Release (for instant local testing)**: Sign in as **Admin → Finance & Payouts → Platform Ledger** → click **Release Hold** on the held `SALE_CREDIT` row → switch back to Seller → verify the amount moved into **Available to Withdraw**.
-  3. **Seller Payout Request & Admin UTR Disbursement**: In **Seller Dashboard → Earnings**, enter an amount (or click **Full**) and click **Request Payout** → switch to **Admin → Finance & Payouts → Seller Payouts** → enter a NEFT/UTR reference (e.g., `UTR261123NEFT1001`) and click **Mark Paid** (or test **Reject** with a reason to verify funds return to the seller's available balance).
-  4. **Return Refund Processing**: Complete a buyer return in **Seller Dashboard → Returns** → open **Admin → Finance & Payouts → Buyer Refunds** → verify proportional commission reversal & seller debit → enter a refund reference ID and click **Mark Processed**.
+  1. **Buyer Verified Review**: Sign in as a Buyer with a `DELIVERED` order → open **Buyer Dashboard → My Orders** → click **Write Review** on a delivered craft → pick 1–5 stars, headline, comment → submit → verify button updates to `Reviewed 5/5`.
+  2. **Public Product Detail Page**: Open that craft's `/products/<slug>` page → scroll to **Verified Buyer Reviews** → confirm star average, 5→1 breakdown bar, and verified review appear live.
+  3. **Seller Reviews & Notifications**: Sign in as the Seller → click the **Notification Bell** in the top header to see the unread review alert → open **Seller Dashboard → Reviews** → post a studio reply → verify Buyer receives a notification and the reply appears on the Product Detail Page.
+  4. **Admin Real DB Analytics & Review Moderation**: Sign in as Admin → open **Admin Dashboard → Reports** → inspect live **6-Month GMV vs. Commission**, **Revenue by Craft Category**, **Payment Mix**, **Fulfilment Funnel**, and **Top Artisan Studios** → switch to **Review Moderation** to test hiding/restoring a review.
 
 ---
 
-## 5. How to Start the Next Session / Module
+## 5. How to Start the Final Module (Week 12)
 
-Once Week 10 tests pass in VS Code, tell the AI:
-> *"Week 10 tests are error-free — let's move forward to Week 11 (Verified Reviews, Notifications & Real DB Analytics Charts)."*
+Once Week 11 tests pass in VS Code, tell the AI:
+> *"Week 11 tests are error-free — let's move forward to Week 12 (Security Audit, Live Razorpay Webhook & Vercel/Render Production Deployment)."*
