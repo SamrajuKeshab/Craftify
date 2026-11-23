@@ -225,7 +225,7 @@ class FinanceLedgerRefundPayoutTests(TestCase):
         # Seller approves then completes return
         self.client.force_authenticate(user=self.seller_user)
         self.assertEqual(
-            self.client.post(
+            self.client.patch(
                 f"/api/v1/seller/returns/{return_id}/resolve/",
                 {"status": "APPROVED", "seller_response_note": "Approved for pickup"},
                 format="json",
@@ -233,7 +233,7 @@ class FinanceLedgerRefundPayoutTests(TestCase):
             200,
         )
         self.assertEqual(
-            self.client.post(
+            self.client.patch(
                 f"/api/v1/seller/returns/{return_id}/resolve/",
                 {
                     "status": "COMPLETED",

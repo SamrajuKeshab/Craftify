@@ -70,7 +70,7 @@
   - **Admin Oversight**: `GET /api/v1/admin/orders/`, `GET /api/v1/admin/payments/`.
 - **Shipping, Courier Tracking & 7-Day Returns (`apps/shipping`)**:
   - `GET /api/v1/shipping/couriers/`, `POST /api/v1/seller/suborders/<uuid>/ship/`, `POST /api/v1/seller/suborders/<uuid>/events/`, `POST /api/v1/seller/suborders/<uuid>/deliver/`.
-  - `GET/POST /api/v1/buyer/returns/`, `GET /api/v1/seller/returns/`, `POST /api/v1/seller/returns/<uuid>/resolve/`, `GET /api/v1/admin/returns/`.
+  - `GET/POST /api/v1/buyer/returns/`, `GET /api/v1/seller/returns/`, `PATCH /api/v1/seller/returns/<uuid>/resolve/`, `GET /api/v1/admin/returns/`.
 - **Financial Ledger, 7-Day Settlements, Refunds & Seller Payouts (`apps/finance`)**:
   - **Seller Earnings & Payouts**: `GET /api/v1/seller/finance/`, `POST /api/v1/seller/finance/payouts/` (atomic balance lock preventing double-withdrawal, snapshotted masked bank & IFSC).
   - **Buyer Refunds**: `GET /api/v1/buyer/refunds/`.
