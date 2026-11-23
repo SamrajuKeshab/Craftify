@@ -119,7 +119,7 @@ def dispatch_seller_suborder(
             "Only PACKED suborders can be dispatched. Mark the suborder as Packed first."
         )
 
-    if hasattr(suborder, "shipment"):
+    if Shipment.objects.filter(suborder=suborder).exists():
         raise ValidationError("A shipment has already been created for this suborder.")
 
     clean_courier = (courier_name or "").strip()
@@ -207,7 +207,7 @@ def add_shipment_tracking_event(
     """Append a chronological transit checkpoint event to an active SHIPPED suborder."""
     suborder = (
         SellerSuborder.objects.select_for_update(of=("self",))
-        .select_related("parent_order", "seller", "shipment")
+        .select_related("parent_order", "seller")
         .filter(pk=suborder_id, seller=seller_profile)
         .first()
     )
@@ -217,7 +217,11 @@ def add_shipment_tracking_event(
     if suborder.fulfilment_status != SellerSuborder.FulfilmentStatus.SHIPPED:
         raise ValidationError("Tracking updates can only be added to SHIPPED suborders.")
 
-    shipment = getattr(suborder, "shipment", None)
+    shipment = (
+        Shipment.objects.select_for_update()
+        .filter(suborder=suborder)
+        .first()
+    )
     if shipment is None:
         raise ValidationError("No shipment record exists for this suborder.")
 
@@ -274,7 +278,7 @@ def mark_suborder_delivered(
     """
     suborder = (
         SellerSuborder.objects.select_for_update(of=("self",))
-        .select_related("parent_order", "seller", "shipment")
+        .select_related("parent_order", "seller")
         .filter(pk=suborder_id, seller=seller_profile)
         .first()
     )
@@ -284,7 +288,11 @@ def mark_suborder_delivered(
     if suborder.fulfilment_status != SellerSuborder.FulfilmentStatus.SHIPPED:
         raise ValidationError("Only SHIPPED suborders can be marked as Delivered.")
 
-    shipment = getattr(suborder, "shipment", None)
+    shipment = (
+        Shipment.objects.select_for_update()
+        .filter(suborder=suborder)
+        .first()
+    )
     if shipment is None:
         raise ValidationError("No shipment record exists for this suborder.")
 
@@ -405,7 +413,7 @@ def create_buyer_return_request(
     """
     order_item = (
         OrderItem.objects.select_for_update(of=("self",))
-        .select_related("suborder", "suborder__parent_order", "suborder__seller", "product")
+        .select_related("suborder", "suborder__parent_order", "suborder__seller")
         .filter(pk=order_item_id, suborder__parent_order__buyer=buyer)
         .first()
     )
