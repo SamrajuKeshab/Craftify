@@ -790,6 +790,20 @@ def cancel_buyer_order(*, user, order_id, request=None) -> Order:
         order.payment_status = Order.PaymentStatus.FAILED
     order.save(update_fields=["overall_status", "payment_status", "stock_state", "updated_at"])
 
+    if (
+        order.payment_method == Order.PaymentMethod.RAZORPAY
+        and order.payment_status == Order.PaymentStatus.PAID
+    ):
+        from apps.finance.models import RefundRecord
+        from apps.finance.services import record_order_cancellation_refund
+
+        record_order_cancellation_refund(
+            order=order,
+            trigger_source=RefundRecord.TriggerSource.BUYER_CANCELLATION,
+            actor=user,
+            request=request,
+        )
+
     record_audit_log(
         actor=user,
         action="ORDER_CANCELLED_BY_BUYER",
@@ -846,6 +860,20 @@ def update_seller_suborder_status(
             stock_state=suborder.parent_order.stock_state,
             note=f"Seller studio cancelled suborder {suborder.suborder_number}",
         )
+        if (
+            suborder.parent_order.payment_method == Order.PaymentMethod.RAZORPAY
+            and suborder.parent_order.payment_status == Order.PaymentStatus.PAID
+        ):
+            from apps.finance.models import RefundRecord
+            from apps.finance.services import record_order_cancellation_refund
+
+            record_order_cancellation_refund(
+                order=suborder.parent_order,
+                suborder=suborder,
+                trigger_source=RefundRecord.TriggerSource.SELLER_CANCELLATION,
+                actor=seller_profile.user,
+                request=request,
+            )
 
     suborder.fulfilment_status = new_status
     if seller_notes is not None and seller_notes.strip():

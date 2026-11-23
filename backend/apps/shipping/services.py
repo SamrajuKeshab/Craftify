@@ -354,6 +354,14 @@ def mark_suborder_delivered(
                     },
                 )
 
+    from apps.finance.services import record_delivery_settlement_entries
+
+    record_delivery_settlement_entries(
+        suborder=suborder,
+        actor=seller_profile.user,
+        request=request,
+    )
+
     record_audit_log(
         actor=seller_profile.user,
         action="SUBORDER_DELIVERED",
@@ -624,6 +632,14 @@ def resolve_seller_return_request(
         if total_ordered_qty > 0 and total_returned_qty >= total_ordered_qty:
             suborder.fulfilment_status = SellerSuborder.FulfilmentStatus.RETURNED
             suborder.save(update_fields=["fulfilment_status", "updated_at"])
+
+        from apps.finance.services import record_return_refund
+
+        record_return_refund(
+            return_request=ret,
+            actor=seller_profile.user,
+            request=request,
+        )
 
     record_audit_log(
         actor=seller_profile.user,

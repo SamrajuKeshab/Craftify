@@ -178,6 +178,7 @@ class AdminDashboardSummaryView(APIView):
         from django.db.models import Sum
 
         from apps.catalog.models import Category, Product
+        from apps.finance.services import compute_platform_finance_summary
         from apps.orders.models import Order
         from apps.orders.views import _build_6m_series
 
@@ -208,6 +209,7 @@ class AdminDashboardSummaryView(APIView):
         total_revenue = revenue_agg["total"] or Decimal("0.00")
         total_orders = valid_orders_qs.count()
         sales_series = _build_6m_series(valid_orders_qs, "total_amount", "thisMonth")
+        finance_summary = compute_platform_finance_summary()
 
         recent_logs = AuditLog.objects.select_related("actor")[:8]
 
@@ -221,11 +223,14 @@ class AdminDashboardSummaryView(APIView):
                     "active_sellers": active_sellers,
                     "approved_products": approved_products,
                     "total_categories": total_categories,
+                    "net_platform_commission": finance_summary["net_platform_commission"],
                 },
                 "sales_series": sales_series,
                 "pending_approvals": {
                     "seller_applications": pending_seller_apps,
                     "product_approvals": pending_products,
+                    "pending_payouts": finance_summary["pending_payouts_count"],
+                    "pending_refunds": finance_summary["pending_refunds_count"],
                 },
                 "recent_audit_logs": AdminAuditLogSerializer(recent_logs, many=True).data,
             },

@@ -50,6 +50,7 @@ import {
   toggleUserActive,
 } from '../services/sellerService';
 import { fetchAdminCoupons } from '../services/commerceService';
+import { fetchAdminFinance } from '../services/financeService';
 import {
   fetchAdminOrders,
   fetchAdminPayments,
@@ -57,6 +58,7 @@ import {
 import { formatINR, formatINRCompact } from '../utils/formatters';
 import AdminCategoriesTab from './AdminCategoriesTab';
 import AdminCouponsTab from './AdminCouponsTab';
+import AdminFinanceTab from './AdminFinanceTab';
 import AdminOrdersTab from './AdminOrdersTab';
 import AdminPaymentsTab from './AdminPaymentsTab';
 import AdminProductsTab from './AdminProductsTab';
@@ -97,6 +99,10 @@ export default function AdminDashboard() {
   const [orderStatusFilter, setOrderStatusFilter] = useState('ALL');
   const [payments, setPayments] = useState([]);
   const [paymentProviderFilter, setPaymentProviderFilter] = useState('ALL');
+  const [financeData, setFinanceData] = useState(null);
+  const [payoutStatusFilter, setPayoutStatusFilter] = useState('ALL');
+  const [refundStatusFilter, setRefundStatusFilter] = useState('ALL');
+  const [ledgerEntryFilter, setLedgerEntryFilter] = useState('ALL');
 
   const [loading, setLoading] = useState(false);
   const [actionBusyId, setActionBusyId] = useState(null);
@@ -280,6 +286,31 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadAdminFinance = async (
+    payoutStatus = payoutStatusFilter,
+    refundStatus = refundStatusFilter,
+    entryType = ledgerEntryFilter,
+    search = searchTerm
+  ) => {
+    setLoading(true);
+    try {
+      const data = await fetchAdminFinance({
+        payoutStatus,
+        refundStatus,
+        entryType,
+        search,
+      });
+      setFinanceData(data);
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: extractServiceError(err, 'Failed to load financial ledger & payouts.'),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboardOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -304,6 +335,13 @@ export default function AdminDashboard() {
       loadAdminOrders(orderStatusFilter, searchTerm);
     } else if (activeTab === 'payments') {
       loadAdminPayments(paymentProviderFilter, searchTerm);
+    } else if (activeTab === 'finance') {
+      loadAdminFinance(
+        payoutStatusFilter,
+        refundStatusFilter,
+        ledgerEntryFilter,
+        searchTerm
+      );
     } else if (activeTab === 'audit') {
       loadAuditLogs();
     }
@@ -316,6 +354,9 @@ export default function AdminDashboard() {
     couponStatusFilter,
     orderStatusFilter,
     paymentProviderFilter,
+    payoutStatusFilter,
+    refundStatusFilter,
+    ledgerEntryFilter,
     searchTerm,
   ]);
 
@@ -394,6 +435,9 @@ export default function AdminDashboard() {
     dashboard?.pending_approvals?.seller_applications ?? 0;
   const pendingProductCount =
     dashboard?.pending_approvals?.product_approvals ?? 0;
+  const pendingFinanceCount =
+    (dashboard?.pending_approvals?.pending_payouts ?? 0) +
+    (dashboard?.pending_approvals?.pending_refunds ?? 0);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -414,6 +458,12 @@ export default function AdminDashboard() {
     { id: 'coupons', label: 'Coupons', icon: Tag },
     { id: 'orders', label: 'Orders', icon: ShoppingCart },
     { id: 'payments', label: 'Payments', icon: CreditCard },
+    {
+      id: 'finance',
+      label: 'Finance & Payouts',
+      icon: Wallet,
+      badge: pendingFinanceCount || undefined,
+    },
     { id: 'audit', label: 'Audit Logs', icon: ScrollText },
     { id: 'reports', label: 'Reports', icon: BarChart3 },
     { id: 'settings', label: 'Settings', icon: Settings },
@@ -1232,6 +1282,32 @@ export default function AdminDashboard() {
         />
       )}
 
+      {/* TAB 10: LIVE FINANCIAL LEDGER, REFUNDS & SELLER PAYOUTS (WEEK 10) */}
+      {activeTab === 'finance' && (
+        <AdminFinanceTab
+          financeData={financeData}
+          payoutStatusFilter={payoutStatusFilter}
+          onPayoutStatusFilterChange={setPayoutStatusFilter}
+          refundStatusFilter={refundStatusFilter}
+          onRefundStatusFilterChange={setRefundStatusFilter}
+          entryTypeFilter={ledgerEntryFilter}
+          onEntryTypeFilterChange={setLedgerEntryFilter}
+          loading={loading}
+          onRefresh={async () => {
+            await Promise.all([
+              loadDashboardOverview(),
+              loadAdminFinance(
+                payoutStatusFilter,
+                refundStatusFilter,
+                ledgerEntryFilter,
+                searchTerm
+              ),
+            ]);
+          }}
+          onFeedback={setFeedback}
+        />
+      )}
+
       {activeTab === 'settings' && <AccountSecurityPanel />}
 
       {activeTab === 'reports' && (
@@ -1240,8 +1316,8 @@ export default function AdminDashboard() {
             Admin Reports &amp; Exports
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            No fake placeholder records are shown here. Live financial ledger exports
-            and deep analytics reports connect in Weeks 10–11 of our roadmap.
+            No fake placeholder records are shown here. Deep analytics dashboards
+            and notification reports connect in Week 11 of our roadmap.
           </p>
           <button
             type="button"

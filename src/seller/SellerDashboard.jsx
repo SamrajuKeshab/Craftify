@@ -32,6 +32,7 @@ import {
   fetchPublicCategories,
   fetchSellerProducts,
 } from '../services/catalogService';
+import { fetchSellerFinance } from '../services/financeService';
 import { fetchSellerSuborders } from '../services/ordersService';
 import {
   extractServiceError,
@@ -40,6 +41,7 @@ import {
 } from '../services/sellerService';
 import { fetchSellerReturns } from '../services/shippingService';
 import { formatINR, formatINRCompact } from '../utils/formatters';
+import SellerEarningsTab from './SellerEarningsTab';
 import SellerOrdersTab from './SellerOrdersTab';
 import SellerProductsTab from './SellerProductsTab';
 import SellerReturnsTab from './SellerReturnsTab';
@@ -102,6 +104,11 @@ export default function SellerDashboard() {
   const [returnStatusFilter, setReturnStatusFilter] = useState('ALL');
   const [returnsLoading, setReturnsLoading] = useState(false);
 
+  // Week 10 live Seller Earnings, Ledger & Payouts
+  const [financeData, setFinanceData] = useState(null);
+  const [financeEntryFilter, setFinanceEntryFilter] = useState('ALL');
+  const [financeLoading, setFinanceLoading] = useState(false);
+
   const loadSellerProducts = async (statusFilter = productStatusFilter) => {
     setProductsLoading(true);
     try {
@@ -149,6 +156,19 @@ export default function SellerDashboard() {
       return [];
     } finally {
       setReturnsLoading(false);
+    }
+  };
+
+  const loadSellerFinance = async (entryFilter = financeEntryFilter) => {
+    setFinanceLoading(true);
+    try {
+      const data = await fetchSellerFinance(entryFilter);
+      setFinanceData(data);
+      return data;
+    } catch {
+      return null;
+    } finally {
+      setFinanceLoading(false);
     }
   };
 
@@ -229,9 +249,17 @@ export default function SellerDashboard() {
       loadSellerSuborders(orderStatusFilter);
     } else if (activeTab === 'returns') {
       loadSellerReturns(returnStatusFilter);
+    } else if (activeTab === 'earnings') {
+      loadSellerFinance(financeEntryFilter);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, productStatusFilter, orderStatusFilter, returnStatusFilter]);
+  }, [
+    activeTab,
+    productStatusFilter,
+    orderStatusFilter,
+    returnStatusFilter,
+    financeEntryFilter,
+  ]);
 
   const handleSaveShop = async (e) => {
     e.preventDefault();
@@ -810,17 +838,27 @@ export default function SellerDashboard() {
         />
       )}
 
+      {/* Live Week 10 Seller Earnings, 7-Day Settlement Ledger & Bank Payouts */}
+      {activeTab === 'earnings' && (
+        <SellerEarningsTab
+          financeData={financeData}
+          entryTypeFilter={financeEntryFilter}
+          onEntryTypeFilterChange={setFinanceEntryFilter}
+          loading={financeLoading}
+          shopSuspended={Boolean(shop?.is_suspended)}
+          onOpenShopSettings={() => setActiveTab('shop')}
+          onRefresh={() => loadSellerFinance(financeEntryFilter)}
+        />
+      )}
+
       {activeTab === 'settings' && <AccountSecurityPanel />}
 
-      {['earnings', 'reviews'].includes(activeTab) && (
+      {activeTab === 'reviews' && (
         <div className="rounded-xl bg-white border border-slate-200/80 p-6">
-          <h2 className="text-lg font-bold text-slate-900 capitalize">
-            Seller {activeTab}
-          </h2>
+          <h2 className="text-lg font-bold text-slate-900">Seller Reviews</h2>
           <p className="mt-1 text-sm text-slate-600">
-            No mock records are shown here. Real PostgreSQL APIs for this section
-            are scheduled in your Craftify roadmap (Week 10: Earnings, Week 11:
-            Reviews).
+            No mock records are shown here. Verified buyer product reviews and
+            studio ratings connect in Week 11 of our roadmap.
           </p>
           <button
             type="button"

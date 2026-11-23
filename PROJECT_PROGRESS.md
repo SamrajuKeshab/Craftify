@@ -3,8 +3,8 @@
 > **Purpose:** Living tracker for both the project owner (in VS Code / GitHub) and AI sessions. Read this file at the start of every new work session and update it after every completed module.
 
 **Last Updated:** 2026-11-23  
-**Current Milestone:** Week 9 Implemented & Ready for VS Code Verification (Indian Courier Dispatch, Shipment Tracking Timeline & Direct Seller 7-Day Returns)  
-**Next Module:** Week 10 — Financial Ledger, Category Commissions Settlement, Refunds & Seller Payouts
+**Current Milestone:** Week 10 Implemented & Ready for VS Code Verification (Immutable Financial Ledger, 7-Day Settlement Holds, Automated Refunds & Seller Bank Payouts)  
+**Next Module:** Week 11 — Verified Reviews, Notifications & Real DB Analytics Charts
 
 ---
 
@@ -20,6 +20,7 @@
 | **Cart, Wishlist & Coupons** | Login required before adding items to Cart or saving to Wishlist (auto-redirects back after sign-in). Platform discount coupons start at zero and are created/managed by Admin in the Admin Dashboard with server-side validation & AuditLog trail. |
 | **Payments** | **Razorpay Prepaid** (server-side Order creation, constant-time HMAC-SHA256 verification & idempotent signed webhook; Test Mode keys active locally, live HTTPS webhook URL scheduled for Week 12 Render deploy) + **Cash on Delivery (COD)** (server-enforced ₹5,000 cap). |
 | **Shipping & Returns** | Free shipping on orders **≥ ₹999** (₹79 standard below ₹999). Sellers select Indian couriers + enter AWB tracking numbers & transit events. **7-day return window** post-delivery with optional buyer Cloudinary photo proof (up to 3 images); personalized/made-to-order items returnable only if damaged/defective/wrong; Sellers approve/reject/complete returns directly with optional restock. |
+| **Settlements, Refunds & Payouts** | Delivered suborders append immutable `SALE_CREDIT` (7-day settlement hold aligned with return window) and `PLATFORM_COMMISSION` entries. Completed returns & cancelled prepaid orders queue `RefundRecord` + proportional `REFUND_DEBIT`/`COMMISSION_REVERSAL`. Sellers withdraw cleared balance to verified masked bank/IFSC; Admin approves/pays with UTR reference or rejects (restoring balance via `PAYOUT_REVERSAL`), with optional early hold release. |
 | **Auth & Token Security** | `/login` shows **only** Username, Password, Forgot Password link, Login button, and Sign Up link (zero role buttons). `/sign-up` always creates a `BUYER` and redirects to `/` (Home Page). Short-lived JWT access token stored strictly in JS memory + rotating refresh token in `HttpOnly` cookie (via Vite `/api` same-origin proxy in dev). 5-failure/15-min lockout + DRF rate throttling. |
 | **Visual Design System** | Warm parchment storefront & cart (`#FAF6F0`, terracotta `#8B4B28`, Fraunces serif + Plus Jakarta Sans + JetBrains Mono) paired with dark charcoal-slate sidebar dashboards (`#242B33` + teal `#2E9A90` active state + `#F6F7F9` workspace). |
 
@@ -39,16 +40,16 @@
 | **6** | Customer Shopping Storefront (Dedicated PDP `/products/:slug`, Price/Craft Filters & Pagination, Artisan Studios `/shops` & `/shops/:slug`) | Live & Verified | Live & Verified | Verified Locally in VS Code | **Done** |
 | **7** | Persistent Cart, Wishlist, Admin Platform Coupons & Buyer Indian Address Book (`apps/commerce`) | Live & Verified | Live & Verified | 25/25 Django Tests OK + Build/Lint OK | **Done** |
 | **8** | Multi-Vendor Order Splitting, Atomic Stock Locking, Razorpay & COD (`apps/orders`) | Live & Verified | Live & Verified | 31/31 Django Tests OK + Razorpay Test Keys Active (Webhook HTTPS URL in Week 12) | **Done** |
-| **9** | Shipping, Indian Courier Tracking, Shipment Events & 7-Day Returns (`apps/shipping`) | Live (Run `makemigrations shipping` + `migrate`) | Live & Wired | Build/Lint OK — Run `python manage.py test` in VS Code (36 tests) | **Ready to Verify** |
-| **10** | Financial Ledger, Category Commissions, Refunds & Seller Payouts | Not Started | Empty State Ready | Not Started | **Next Up** |
-| **11** | Verified Reviews, Notifications & Real DB Analytics Charts | Not Started | Baseline Charts Ready | Not Started | Pending |
+| **9** | Shipping, Indian Courier Tracking, Shipment Events & 7-Day Returns (`apps/shipping`) | Live & Verified | Live & Verified | 36/36 Django Tests OK + Verified Error-Free in VS Code | **Done** |
+| **10** | Financial Ledger, Category Commissions Settlement, Refunds & Seller Payouts (`apps/finance`) | Live (Run `makemigrations finance` + `migrate`) | Live & Wired | Build/Lint OK — Run `python manage.py test` in VS Code (41 tests) | **Ready to Verify** |
+| **11** | Verified Reviews, Notifications & Real DB Analytics Charts | Not Started | Baseline Charts Ready | Not Started | **Next Up** |
 | **12** | Full Security Audit (OWASP ASVS), Load/E2E Tests, Razorpay Live Webhook & Vercel/Render Deploy | Not Started | Not Started | Not Started | Pending |
 
 ---
 
 ## 3. Honest Reality Check: Live Backend vs. Upcoming Modules
 
-### Implemented & Connected to Live Django + PostgreSQL (Weeks 2–9)
+### Implemented & Connected to Live Django + PostgreSQL (Weeks 2–10)
 - **Auth & Security (`apps/accounts`)**: `/register/`, `/verify-email/`, `/resend-verification/`, `/login/`, `/token/refresh/` (`HttpOnly` cookie with single-flight client mutex), `/logout/`, `/logout-all/`, `/password/reset/`, `/password/reset/confirm/`, `/password/change/`, `/me/`.
 - **Seller Onboarding & Admin Governance (`apps/sellers`, `apps/audit`)**:
   - `POST /api/v1/sellers/apply/`, `GET /api/v1/sellers/application-status/`, `GET/PATCH /api/v1/sellers/shop/`, `GET /api/v1/sellers/documents/<uuid>/`.
@@ -68,40 +69,42 @@
   - **Seller Suborders**: `GET /api/v1/seller/suborders/`, `PATCH /api/v1/seller/suborders/<uuid>/status/`.
   - **Admin Oversight**: `GET /api/v1/admin/orders/`, `GET /api/v1/admin/payments/`.
 - **Shipping, Courier Tracking & 7-Day Returns (`apps/shipping`)**:
-  - **Seller Courier Dispatch & Milestones**: `GET /api/v1/shipping/couriers/`, `POST /api/v1/seller/suborders/<uuid>/ship/`, `POST /api/v1/seller/suborders/<uuid>/events/`, `POST /api/v1/seller/suborders/<uuid>/deliver/` (automatically captures COD payment once all active suborders are delivered).
-  - **Buyer 7-Day Returns**: `GET/POST /api/v1/buyer/returns/` (multipart optional up-to-3 Cloudinary proof photos, 7-day window check, personalized/made-to-order policy enforcement).
-  - **Direct Seller Return Resolution & Admin Oversight**: `GET /api/v1/seller/returns/`, `PATCH /api/v1/seller/returns/<uuid>/resolve/` (approve, reject with note, mark picked up, complete + optional atomic inventory restock), `GET /api/v1/admin/returns/`.
+  - `GET /api/v1/shipping/couriers/`, `POST /api/v1/seller/suborders/<uuid>/ship/`, `POST /api/v1/seller/suborders/<uuid>/events/`, `POST /api/v1/seller/suborders/<uuid>/deliver/`.
+  - `GET/POST /api/v1/buyer/returns/`, `GET /api/v1/seller/returns/`, `POST /api/v1/seller/returns/<uuid>/resolve/`, `GET /api/v1/admin/returns/`.
+- **Financial Ledger, 7-Day Settlements, Refunds & Seller Payouts (`apps/finance`)**:
+  - **Seller Earnings & Payouts**: `GET /api/v1/seller/finance/`, `POST /api/v1/seller/finance/payouts/` (atomic balance lock preventing double-withdrawal, snapshotted masked bank & IFSC).
+  - **Buyer Refunds**: `GET /api/v1/buyer/refunds/`.
+  - **Admin Finance Governance**: `GET /api/v1/admin/finance/`, `POST /api/v1/admin/finance/payouts/<uuid>/action/` (`PROCESSING` / `PAID` with UTR / `REJECTED` with automatic `PAYOUT_REVERSAL`), `POST /api/v1/admin/finance/refunds/<uuid>/action/` (`PROCESSED` with gateway/UPI ref / `FAILED`), `POST /api/v1/admin/finance/ledger/<uuid>/release-hold/` (audited early release of 7-day settlement hold).
 
-### Scheduled Upcoming Modules (Weeks 10–12)
-- Financial ledger, category commissions settlement, refunds & seller payouts (`apps/finance` — **Week 10**).
+### Scheduled Upcoming Modules (Weeks 11–12)
 - Verified reviews, notifications & deep analytics (`apps/reviews`, `apps/notifications` — **Week 11**).
 - Full OWASP ASVS security audit, load/E2E tests, live Razorpay HTTPS webhook (`RAZORPAY_WEBHOOK_SECRET`), and Vercel/Render deployment (**Week 12**).
 
 ---
 
-## 4. VS Code Local Verification Checklist (Week 9)
+## 4. VS Code Local Verification Checklist (Week 10)
 
 After pushing to GitHub and running `git pull origin main` in VS Code (no extra `pip install` or `npm install` needed):
 
-- [ ] Generate and apply the new `shipping` PostgreSQL migration:
+- [ ] Generate and apply the new `finance` PostgreSQL migration:
   ```powershell
   cd backend
-  python manage.py makemigrations shipping
+  python manage.py makemigrations finance
   python manage.py migrate
   ```
-- [ ] Run the full automated Django test suite (**36 tests total**: 31 existing + 5 new Week 9 tests covering Indian courier dispatch & tracking timeline, COD delivery auto-capture, 7-day return window expiry, personalized/made-to-order return policy restriction, and direct seller return approval/completion + atomic restock & cross-seller isolation):
+- [ ] Run the full automated Django test suite (**41 tests total**: 36 existing + 5 new Week 10 tests covering delivery ledger credits & 7-day settlement holds, completed return refund & proportional commission reversal, seller payout withdrawal + overspend/double-withdrawal blocking + UTR paid & rejected balance restoration, prepaid order cancellation refund, and RBAC/cross-seller isolation):
   ```powershell
   python manage.py test
   ```
 - [ ] Start Django (`python manage.py runserver`) and React (`npm run dev`) and verify end-to-end:
-  1. **Seller Courier Dispatch**: Open **Seller Dashboard → Orders** → take a `PACKED` suborder → pick an Indian courier (e.g., Delhivery / Blue Dart / India Post / Custom), enter an AWB tracking number, optional HTTPS tracking URL & ETA → click **Dispatch Parcel**.
-  2. **Transit Milestones & Delivery**: On the `SHIPPED` suborder, log an `In Transit` or `Out for Delivery` update with hub location → expand **Timeline** → click **Mark Delivered** (confirms 7-day return window starts, and COD orders mark `PAID` once delivered).
-  3. **Buyer Tracking & 7-Day Return Request**: Sign in as the Buyer → open **Buyer Dashboard → My Orders** → verify the Courier + copyable AWB strip, expandable **Updates** timeline, and `Return window open · 7 days left` indicator → click **Request Return** on a delivered item → optionally attach 1–3 evidence photos → submit.
-  4. **Direct Seller Return Resolution**: Switch to **Seller Dashboard → Returns** (check the live pending badge) → inspect buyer photos → **Approve Return**, **Mark Picked Up**, and **Complete Return** (with optional restock checkbox) → verify buyer sees updated status & studio response note and Admin sees courier/return data under **Admin → Orders → View Split**.
+  1. **Delivery Settlement Credit**: Deliver a suborder in **Seller Dashboard → Orders** → open **Seller Dashboard → Earnings** → verify **Pending Settlement Hold** shows the exact net INR amount (after category commission) with `Hold · Releases <date + 7 days>` in the ledger.
+  2. **Admin Early Hold Release (for instant local testing)**: Sign in as **Admin → Finance & Payouts → Platform Ledger** → click **Release Hold** on the held `SALE_CREDIT` row → switch back to Seller → verify the amount moved into **Available to Withdraw**.
+  3. **Seller Payout Request & Admin UTR Disbursement**: In **Seller Dashboard → Earnings**, enter an amount (or click **Full**) and click **Request Payout** → switch to **Admin → Finance & Payouts → Seller Payouts** → enter a NEFT/UTR reference (e.g., `UTR261123NEFT1001`) and click **Mark Paid** (or test **Reject** with a reason to verify funds return to the seller's available balance).
+  4. **Return Refund Processing**: Complete a buyer return in **Seller Dashboard → Returns** → open **Admin → Finance & Payouts → Buyer Refunds** → verify proportional commission reversal & seller debit → enter a refund reference ID and click **Mark Processed**.
 
 ---
 
 ## 5. How to Start the Next Session / Module
 
-Once Week 9 tests pass in VS Code, tell the AI:
-> *"Week 9 tests are error-free — let's move forward to Week 10 (Financial Ledger, Category Commissions, Refunds & Seller Payouts)."*
+Once Week 10 tests pass in VS Code, tell the AI:
+> *"Week 10 tests are error-free — let's move forward to Week 11 (Verified Reviews, Notifications & Real DB Analytics Charts)."*
