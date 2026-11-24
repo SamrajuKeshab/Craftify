@@ -157,7 +157,7 @@ class Week12SecurityAndE2ETests(TestCase):
                 "username": "escalate_attempt",
                 "email": "escalate@craftify.in",
                 "password": "StrongPassword!123",
-                "password_confirm": "StrongPassword!123",
+                "confirm_password": "StrongPassword!123",
                 "full_name": "Test User",
                 "role": "ADMIN",
                 "is_staff": True,
@@ -304,6 +304,14 @@ class Week12SecurityAndE2ETests(TestCase):
     # ------------------------------------------------------------------
     # 5. Razorpay Live Webhook HMAC-SHA256 & order.paid Idempotency
     # ------------------------------------------------------------------
+    @patch.dict(
+        os.environ,
+        {
+            "RAZORPAY_KEY_ID": "rzp_test_sec123",
+            "RAZORPAY_KEY_SECRET": "sec_key_secret_999",
+            "RAZORPAY_WEBHOOK_SECRET": "whsec_craftify_week12_super_secret",
+        },
+    )
     @patch("apps.orders.services.create_razorpay_order")
     def test_razorpay_webhook_signature_validation_and_order_paid_idempotency(
         self, mock_rzp_order
