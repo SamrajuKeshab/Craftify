@@ -107,6 +107,13 @@ class BuyerReviewListCreateView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_throttles(self):
+        if self.request.method == "POST":
+            self.throttle_scope = "review_create"
+        else:
+            self.throttle_scope = None
+        return super().get_throttles()
+
     def get(self, request):
         qs = ProductReview.objects.filter(buyer=request.user).select_related(
             "buyer", "product", "seller", "order_item"

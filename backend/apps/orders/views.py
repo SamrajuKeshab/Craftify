@@ -57,6 +57,7 @@ class CheckoutView(APIView):
     """POST /api/v1/checkout/ — Atomic stock lock + parent Order + split SellerSuborders."""
 
     permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "checkout"
 
     def post(self, request):
         serializer = CheckoutRequestSerializer(data=request.data)
@@ -88,6 +89,7 @@ class RazorpayVerifyView(APIView):
     """POST /api/v1/payments/razorpay/verify/ — Server-side HMAC-SHA256 verification."""
 
     permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = "payment_verify"
 
     def post(self, request):
         serializer = RazorpayVerifySerializer(data=request.data)
@@ -143,14 +145,22 @@ class RazorpayFailView(APIView):
 class RazorpayWebhookView(APIView):
     """
     POST /api/v1/payments/razorpay/webhook/
-    Razorpay-signed idempotent webhook listener for payment.captured and payment.failed.
+    Razorpay-signed idempotent webhook listener for payment.captured, order.paid, and payment.failed.
     """
 
     authentication_classes = []
     permission_classes = [permissions.AllowAny]
+    throttle_classes = []
+    MAX_WEBHOOK_BYTES = 256 * 1024  # 256 KB defensive limit
 
     def post(self, request):
         raw_body = request.body
+        if not raw_body or len(raw_body) > self.MAX_WEBHOOK_BYTES:
+            return Response(
+                {"detail": "Invalid webhook payload size."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         signature = request.META.get("HTTP_X_RAZORPAY_SIGNATURE", "")
         if not verify_razorpay_webhook_signature(
             raw_body=raw_body, signature_header=signature
@@ -174,10 +184,11 @@ class RazorpayWebhookView(APIView):
             or payload.get("id")
             or f"{event}-{payload.get('created_at', '')}"
         )
-        payment_entity = (
-            payload.get("payload", {}).get("payment", {}).get("entity", {})
-        )
-        rzp_order_id = payment_entity.get("order_id")
+        payload_data = payload.get("payload", {})
+        payment_entity = payload_data.get("payment", {}).get("entity", {})
+        order_entity = payload_data.get("order", {}).get("entity", {})
+
+        rzp_order_id = payment_entity.get("order_id") or order_entity.get("id")
         rzp_payment_id = payment_entity.get("id")
 
         if not rzp_order_id:
@@ -191,16 +202,20 @@ class RazorpayWebhookView(APIView):
             "event": event,
             "razorpay_order_id": rzp_order_id,
             "razorpay_payment_id": rzp_payment_id,
-            "status": payment_entity.get("status"),
+            "status": payment_entity.get("status") or order_entity.get("status"),
             "method": payment_entity.get("method"),
-            "amount": payment_entity.get("amount"),
+            "amount": payment_entity.get("amount") or order_entity.get("amount_paid"),
         }
 
-        if event == "payment.captured" and rzp_payment_id:
+        if event in ("payment.captured", "order.paid") and rzp_payment_id:
             finalize_razorpay_payment_capture(
                 payment=payment,
                 razorpay_payment_id=rzp_payment_id,
-                event_type="WEBHOOK_PAYMENT_CAPTURED",
+                event_type=(
+                    "WEBHOOK_ORDER_PAID"
+                    if event == "order.paid"
+                    else "WEBHOOK_PAYMENT_CAPTURED"
+                ),
                 idempotency_key=f"rzp-wh-cap-{event_id}",
                 webhook_event_id=f"wh-{event_id}",
                 raw_payload=redacted_payload,

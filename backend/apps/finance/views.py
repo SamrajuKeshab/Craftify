@@ -91,6 +91,7 @@ class SellerPayoutRequestView(APIView):
     """POST /api/v1/seller/finance/payouts/ — Request withdrawal from available INR balance."""
 
     permission_classes = [IsApprovedSellerRole]
+    throttle_scope = "payout_request"
 
     def post(self, request):
         profile = _get_seller_profile_or_404(request.user)

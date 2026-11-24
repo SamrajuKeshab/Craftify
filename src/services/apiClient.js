@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Uses Vite same-origin proxy `/api/v1` in local VS Code dev so HttpOnly refresh cookies persist across reloads.
-// In production (Vercel), set VITE_API_BASE_URL to your Render HTTPS URL (e.g. https://craftify-api.onrender.com/api/v1).
+// Uses same-origin `/api/v1` BOTH in local dev (Vite proxy) AND production (Vercel /api/:path* proxy to Render)
+// so HttpOnly SameSite=Lax refresh cookies work reliably across all browsers without third-party cookie blocking.
 const rawEnvBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
 const isLocalCrossPortDevUrl =
   import.meta.env.DEV &&
@@ -66,7 +66,7 @@ export function refreshAccessToken() {
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 8000,
+  timeout: 25000,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',

@@ -131,6 +131,13 @@ class BuyerReturnListCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
+    def get_throttles(self):
+        if self.request.method == "POST":
+            self.throttle_scope = "return_request"
+        else:
+            self.throttle_scope = None
+        return super().get_throttles()
+
     def get(self, request):
         qs = (
             ReturnRequest.objects.filter(buyer=request.user)

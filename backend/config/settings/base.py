@@ -42,6 +42,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "common.middleware.SecurityHeadersMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -112,14 +113,23 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_THROTTLE_CLASSES": (
         "rest_framework.throttling.ScopedRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
     ),
     "DEFAULT_THROTTLE_RATES": {
+        "anon": "300/minute",
+        "user": "600/minute",
         "login": "5/minute",
         "register": "10/hour",
         "password_reset": "5/hour",
         "email_verification": "5/hour",
         "seller_apply": "10/hour",
         "media_upload": "30/hour",
+        "checkout": "20/hour",
+        "payment_verify": "30/hour",
+        "return_request": "15/hour",
+        "review_create": "20/hour",
+        "payout_request": "10/hour",
     },
 }
 
@@ -138,7 +148,7 @@ SIMPLE_JWT = {
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@craftify.in")
 AUTH_REFRESH_COOKIE_NAME = "craftify_refresh"
-AUTH_REFRESH_COOKIE_SAMESITE = "Lax"
+AUTH_REFRESH_COOKIE_SAMESITE = os.getenv("AUTH_REFRESH_COOKIE_SAMESITE", "Lax")
 AUTH_LOCKOUT_THRESHOLD = 5
 AUTH_LOCKOUT_MINUTES = 15
 AUTH_EMAIL_VERIFY_EXPIRY_HOURS = 24
