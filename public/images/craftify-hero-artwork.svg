@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Sunlit Indian artisan craft studio backdrop">
+  <defs>
+    <!-- Warm sunlit parchment & sandstone studio backdrop -->
+    <linearGradient id="bgWall" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FBF6EE"/>
+      <stop offset="48%" stop-color="#F2E4D1"/>
+      <stop offset="100%" stop-color="#E4CDB2"/>
+    </linearGradient>
+
+    <!-- Warm golden-hour diagonal sunlight shaft -->
+    <linearGradient id="sunShaft" x1="0.85" y1="0" x2="0.25" y2="1">
+      <stop offset="0%" stop-color="#FFFDF8" stop-opacity="0.72"/>
+      <stop offset="50%" stop-color="#F9EBD4" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#E6C9A6" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Sandstone arch depth -->
+    <linearGradient id="archFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#DFC4A6" stop-opacity="0.72"/>
+      <stop offset="100%" stop-color="#C9A37E" stop-opacity="0.45"/>
+    </linearGradient>
+
+    <!-- Terracotta clay vessel gradient -->
+    <linearGradient id="terracottaPot" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#B9653B"/>
+      <stop offset="55%" stop-color="#8B4B28"/>
+      <stop offset="100%" stop-color="#613118"/>
+    </linearGradient>
+
+    <!-- Indigo ceramic glaze gradient -->
+    <linearGradient id="indigoVase" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3E5C76"/>
+      <stop offset="60%" stop-color="#283F54"/>
+      <stop offset="100%" stop-color="#1B2B3A"/>
+    </linearGradient>
+
+    <!-- Antique brass gradient -->
+    <linearGradient id="brassGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#DFB15B"/>
+      <stop offset="55%" stop-color="#B5802E"/>
+      <stop offset="100%" stop-color="#7C5318"/>
+    </linearGradient>
+
+    <!-- Teakwood table surface -->
+    <linearGradient id="teakTable" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#C89E74"/>
+      <stop offset="35%" stop-color="#AD7E54"/>
+      <stop offset="100%" stop-color="#835A36"/>
+    </linearGradient>
+
+    <!-- Subtle handloom weave pattern -->
+    <pattern id="loomWeave" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M0 12 H24 M12 0 V24" stroke="#8B4B28" stroke-width="0.6" stroke-opacity="0.06"/>
+      <circle cx="12" cy="12" r="1.1" fill="#8B4B28" fill-opacity="0.07"/>
+    </pattern>
+
+    <!-- Soft ambient pottery shadow -->
+    <radialGradient id="softShadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3D2414" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#3D2414" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Base Studio Plaster Wall -->
+  <rect width="1600" height="900" fill="url(#bgWall)"/>
+  <rect width="1600" height="900" fill="url(#loomWeave)"/>
+
+  <!-- Soft Sunlight Beam -->
+  <polygon points="920,0 1600,0 1600,720 680,900 420,900" fill="url(#sunShaft)"/>
+
+  <!-- Traditional Indian Jharokha / Studio Alcove Arch on Right -->
+  <g transform="translate(860, 75)">
+    <path d="M 60 660 L 60 250 C 60 95, 195 10, 320 10 C 445 10, 580 95, 580 250 L 580 660 Z"
+          fill="url(#archFill)" stroke="#C9A885" stroke-width="2" stroke-opacity="0.6"/>
+    <!-- Inner Decorative Scallop Line -->
+    <path d="M 92 660 L 92 256 C 92 126, 206 46, 320 46 C 434 46, 548 126, 548 256 L 548 660"
+          fill="none" stroke="#FAF3E8" stroke-width="1.5" stroke-opacity="0.55" stroke-dasharray="6 8"/>
+    <!-- Subtle Geometric Jaali Medallion -->
+    <g transform="translate(320, 175)" opacity="0.22" stroke="#8B4B28" fill="none" stroke-width="1.5">
+      <circle r="76"/>
+      <circle r="54"/>
+      <circle r="28"/>
+      <path d="M0 -76 L0 76 M-76 0 L76 0 M-54 -54 L54 54 M54 -54 L-54 54"/>
+    </g>
+  </g>
+
+  <!-- Teakwood Artisan Table Foreground -->
+  <rect x="0" y="690" width="1600" height="210" fill="url(#teakTable)"/>
+  <line x1="0" y1="690" x2="1600" y2="690" stroke="#DFC09C" stroke-width="2" stroke-opacity="0.7"/>
+
+  <!-- Folded Handloom Block-Printed Cotton Runner on Table -->
+  <g transform="translate(760, 690)">
+    <polygon points="80,0 740,0 820,210 0,210" fill="#F4EAE0" fill-opacity="0.88"/>
+    <line x1="115" y1="18" x2="730" y2="18" stroke="#8B4B28" stroke-width="3" stroke-opacity="0.45"/>
+    <line x1="110" y1="30" x2="736" y2="30" stroke="#283F54" stroke-width="1.5" stroke-opacity="0.38" stroke-dasharray="10 8"/>
+    <line x1="65" y1="168" x2="780" y2="168" stroke="#8B4B28" stroke-width="3" stroke-opacity="0.45"/>
+  </g>
+
+  <!-- Dried Botanical Sprigs Emerging from Tall Pottery Vase -->
+  <g transform="translate(1080, 150)" fill="none" stroke="#6E5A46" stroke-linecap="round">
+    <path d="M 40 310 Q 15 190 -25 70" stroke-width="3"/>
+    <path d="M 48 310 Q 75 180 125 45" stroke-width="2.8"/>
+    <path d="M 45 310 Q 45 200 35 100" stroke-width="2.2" stroke-opacity="0.7"/>
+    <!-- Botanical Leaves -->
+    <ellipse cx="-2" cy="145" rx="22" ry="9" transform="rotate(-35 -2 145)" fill="#7D8C6D" fill-opacity="0.78" stroke="none"/>
+    <ellipse cx="-24" cy="95" rx="18" ry="8" transform="rotate(-50 -24 95)" fill="#627355" fill-opacity="0.75" stroke="none"/>
+    <ellipse cx="92" cy="135" rx="24" ry="9" transform="rotate(32 92 135)" fill="#7D8C6D" fill-opacity="0.75" stroke="none"/>
+    <ellipse cx="116" cy="82" rx="18" ry="8" transform="rotate(42 116 82)" fill="#8FA07E" fill-opacity="0.72" stroke="none"/>
+    <circle cx="35" cy="94" r="9" fill="#D8A352" fill-opacity="0.82" stroke="none"/>
+    <circle cx="52" cy="126" r="6" fill="#C97B48" fill-opacity="0.78" stroke="none"/>
+  </g>
+
+  <!-- Soft Shadows Under Vessels -->
+  <ellipse cx="1125" cy="726" rx="135" ry="24" fill="url(#softShadow)"/>
+  <ellipse cx="1320" cy="738" rx="95" ry="18" fill="url(#softShadow)"/>
+  <ellipse cx="945" cy="744" rx="78" ry="15" fill="url(#softShadow)"/>
+
+  <!-- Hero Vessel 1: Hand-Painted Terracotta Stoneware Amphora -->
+  <g transform="translate(1015, 420)">
+    <path d="M 75 0 L 145 0 L 138 56 C 195 105, 212 195, 182 275 C 168 300, 146 310, 110 310 C 74 310, 52 300, 38 275 C 8 195, 25 105, 82 56 Z"
+          fill="url(#terracottaPot)"/>
+    <!-- Lip Highlight -->
+    <ellipse cx="110" cy="4" rx="36" ry="7" fill="#D5855A" fill-opacity="0.8"/>
+    <!-- Traditional Hand-Painted Band Motifs -->
+    <path d="M 42 148 Q 110 165 178 148" fill="none" stroke="#F6E9D7" stroke-width="2.5" stroke-opacity="0.78"/>
+    <path d="M 34 176 Q 110 194 186 176" fill="none" stroke="#F6E9D7" stroke-width="1.8" stroke-opacity="0.65" stroke-dasharray="8 8"/>
+    <path d="M 38 205 Q 110 222 182 205" fill="none" stroke="#E5B96F" stroke-width="2.2" stroke-opacity="0.72"/>
+    <!-- Specular Glaze Highlight -->
+    <path d="M 66 95 C 46 145, 45 205, 62 252" fill="none" stroke="#FFF4E6" stroke-width="6" stroke-linecap="round" stroke-opacity="0.22"/>
+  </g>
+
+  <!-- Hero Vessel 2: Jaipur Indigo Hand-Glazed Ceramic Jug -->
+  <g transform="translate(1245, 515)">
+    <path d="M 46 0 L 104 0 L 98 42 C 138 78, 148 145, 128 202 C 118 220, 98 228, 75 228 C 52 228, 32 220, 22 202 C 2 145, 12 78, 52 42 Z"
+          fill="url(#indigoVase)"/>
+    <ellipse cx="75" cy="3" rx="29" ry="5" fill="#5D7E9C" fill-opacity="0.8"/>
+    <!-- White Folk Floral Linework -->
+    <path d="M 24 118 Q 75 132 126 118" fill="none" stroke="#FAF4EA" stroke-width="2" stroke-opacity="0.75"/>
+    <circle cx="52" cy="145" r="5" fill="#FAF4EA" fill-opacity="0.7"/>
+    <circle cx="75" cy="150" r="6" fill="#E3B35A" fill-opacity="0.82"/>
+    <circle cx="98" cy="145" r="5" fill="#FAF4EA" fill-opacity="0.7"/>
+    <path d="M 40 72 C 28 110, 28 152, 42 186" fill="none" stroke="#D9E7F2" stroke-width="4" stroke-linecap="round" stroke-opacity="0.22"/>
+  </g>
+
+  <!-- Hero Vessel 3: Hammered Antique Brass Bowl / Diya -->
+  <g transform="translate(880, 676)">
+    <path d="M 10 12 C 10 52, 42 70, 66 70 C 90 70, 122 52, 122 12 Z" fill="url(#brassGlow)"/>
+    <ellipse cx="66" cy="12" rx="56" ry="10" fill="#ECC878"/>
+    <ellipse cx="66" cy="13" rx="46" ry="6.5" fill="#8C5F1E" fill-opacity="0.7"/>
+    <!-- Gentle Rim Shimmer -->
+    <path d="M 26 30 Q 48 48 66 49" fill="none" stroke="#FFF4D1" stroke-width="3" stroke-linecap="round" stroke-opacity="0.35"/>
+  </g>
+
+  <!-- Subtle Floating Geometric Motif Dots (Left Background Softness) -->
+  <g opacity="0.16" fill="#8B4B28">
+    <circle cx="130" cy="120" r="3"/>
+    <circle cx="152" cy="120" r="2"/>
+    <circle cx="130" cy="142" r="2"/>
+    <circle cx="640" cy="130" r="2.5"/>
+    <circle cx="662" cy="148" r="2"/>
+  </g>
+</svg>

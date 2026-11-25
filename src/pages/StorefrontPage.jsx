@@ -6,11 +6,13 @@ import {
   FolderTree,
   Heart,
   Image as ImageIcon,
+  MapPin,
   Package,
   RefreshCw,
   ShieldCheck,
   SlidersHorizontal,
   Star,
+  Store,
   Truck,
   Users,
 } from 'lucide-react';
@@ -20,10 +22,10 @@ import ProductDetailModal from '../components/storefront/ProductDetailModal';
 import StorefrontNavbar from '../components/storefront/StorefrontNavbar';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { CRAFTIFY_IMAGES } from '../data/craftifyData';
 import {
   fetchPublicCategories,
   fetchPublicProducts,
+  fetchPublicShops,
   normalizeStorefrontProduct,
 } from '../services/catalogService';
 import { formatINR } from '../utils/formatters';
@@ -34,6 +36,9 @@ export default function StorefrontPage() {
   const [searchParams] = useSearchParams();
 
   const [categories, setCategories] = useState([]);
+  const [shops, setShops] = useState([]);
+  const [shopsLoading, setShopsLoading] = useState(true);
+  const [spotlightProducts, setSpotlightProducts] = useState([]);
   const [products, setProducts] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
@@ -67,20 +72,43 @@ export default function StorefrontPage() {
     if (paramSearch !== null) setSearchQuery(paramSearch);
   }, [searchParams]);
 
-  // Load live active craft categories from PostgreSQL
+  // Load live craft categories, verified artisan studios, and hero spotlight crafts from PostgreSQL
   useEffect(() => {
     let active = true;
-    async function loadCategories() {
-      try {
-        const data = await fetchPublicCategories();
-        if (active) {
-          setCategories(data.results || []);
-        }
-      } catch {
-        if (active) setCategories([]);
+    async function loadStorefrontMeta() {
+      setShopsLoading(true);
+      const [catRes, shopsRes, spotlightRes] = await Promise.allSettled([
+        fetchPublicCategories(),
+        fetchPublicShops(),
+        fetchPublicProducts({ ordering: 'newest', page: 1, pageSize: 6 }),
+      ]);
+      if (!active) return;
+
+      if (catRes.status === 'fulfilled') {
+        setCategories(catRes.value?.results || []);
+      } else {
+        setCategories([]);
       }
+
+      if (shopsRes.status === 'fulfilled') {
+        setShops(shopsRes.value?.results || []);
+      } else {
+        setShops([]);
+      }
+
+      if (spotlightRes.status === 'fulfilled') {
+        const withImages = (spotlightRes.value?.results || [])
+          .map(normalizeStorefrontProduct)
+          .filter((item) => item && item.image)
+          .slice(0, 3);
+        setSpotlightProducts(withImages);
+      } else {
+        setSpotlightProducts([]);
+      }
+
+      setShopsLoading(false);
     }
-    loadCategories();
+    loadStorefrontMeta();
     return () => {
       active = false;
     };
@@ -198,81 +226,148 @@ export default function StorefrontPage() {
       />
 
       <main className="flex-1">
-        {/* Hero Banner */}
+        {/* Full-Bleed Editorial Craft Hero Banner */}
         <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6">
-          <div className="relative overflow-hidden rounded-2xl border border-[#E8DFD3] bg-[#F1E6D6] min-h-[340px] sm:min-h-[410px] flex items-center">
+          <div className="relative overflow-hidden rounded-2xl border border-[#E6DACB] bg-[#F3E7D7] min-h-[380px] sm:min-h-[430px] flex items-center">
             <img
-              src={CRAFTIFY_IMAGES.hero}
-              alt="Hand-painted Indian ceramic pottery vase and carved wooden Buddha figurine on a sunlit table"
+              src="/images/craftify-hero-artwork.svg"
+              alt="Sunlit Indian artisan studio table with handcrafted terracotta pottery, indigo ceramic jug, hammered brass bowl, and handloom textile"
               referrerPolicy="no-referrer"
-              className="absolute inset-0 h-full w-full object-cover object-center"
+              className="absolute inset-0 h-full w-full object-cover object-right"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#F6EFE5]/95 via-[#F6EFE5]/75 to-transparent sm:via-[#F6EFE5]/55" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#FAF5ED]/96 via-[#F7EFE3]/82 to-[#F3E8D8]/25 sm:via-[#F7EFE3]/68" />
 
-            <div className="relative z-10 max-w-xl px-7 py-12 sm:px-12 sm:py-16">
-              <p className="text-sm font-medium text-[#7A563E] tracking-wide mb-2">
-                Handmade with Love
-              </p>
-              <h1 className="font-serif text-4xl sm:text-5xl font-bold text-[#2C2018] leading-[1.12] tracking-tight text-balance">
-                Discover Unique Art &amp; Craft
-              </h1>
-              <p className="mt-4 text-sm sm:text-base text-[#524338]">
-                Support Artisans <span aria-hidden="true">·</span> Celebrate Creativity
-              </p>
-              <div className="mt-7 flex flex-wrap items-center gap-3">
-                <a
-                  href="#featured-products"
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#8B4B28] px-6 py-3 text-sm font-semibold text-white hover:bg-[#733C1E] transition-colors whitespace-nowrap"
-                >
-                  <span>Shop Now</span>
-                  <ArrowRight className="h-4 w-4" />
-                </a>
-                <Link
-                  to="/shops"
-                  className="inline-flex items-center gap-2 rounded-lg border border-[#D4C5B4] bg-white/85 px-5 py-3 text-sm font-semibold text-[#2C2018] hover:bg-white transition-colors whitespace-nowrap"
-                >
-                  Explore Studios
-                </Link>
+            <div className="relative z-10 w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center px-7 py-12 sm:px-12 sm:py-14">
+              <div className="lg:col-span-6 xl:col-span-6 max-w-xl">
+                <p className="text-xs font-semibold tracking-wide text-[#8B4B28] mb-3">
+                  Handcrafted in India · Direct From Verified Studios
+                </p>
+                <h1 className="font-serif text-4xl sm:text-5xl font-bold text-[#2C2018] leading-[1.1] tracking-tight text-balance">
+                  Discover Authentic Handmade Art &amp; Craft
+                </h1>
+                <p className="mt-4 text-sm sm:text-base leading-relaxed text-[#4F4035]">
+                  Every piece on Craftify is handmade in small batches and reviewed
+                  before listing — shipped straight from independent Indian workshops
+                  to your home.
+                </p>
+                <div className="mt-7 flex flex-wrap items-center gap-3">
+                  <a
+                    href="#featured-products"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#8B4B28] px-6 py-3 text-sm font-semibold text-white hover:bg-[#733C1E] transition-colors whitespace-nowrap"
+                  >
+                    <span>Shop Crafts</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                  <Link
+                    to="/shops"
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#D4C5B4] bg-white/90 px-5 py-3 text-sm font-semibold text-[#2C2018] hover:bg-white hover:border-[#8B4B28] transition-colors whitespace-nowrap"
+                  >
+                    Explore Studios
+                  </Link>
+                </div>
               </div>
+
+              {/* Live Cloudinary Craft Spotlight (automatically showcases real approved crafts when available) */}
+              {spotlightProducts.length > 0 && (
+                <div className="hidden lg:grid lg:col-span-6 grid-cols-12 gap-3.5 items-stretch">
+                  <Link
+                    to={`/products/${spotlightProducts[0].slug}`}
+                    className={`group relative overflow-hidden rounded-xl border border-white/80 bg-white shadow-sm ${
+                      spotlightProducts.length === 1
+                        ? 'col-span-12 aspect-[16/10]'
+                        : 'col-span-7 min-h-[290px]'
+                    }`}
+                  >
+                    <img
+                      src={spotlightProducts[0].image}
+                      alt={spotlightProducts[0].name}
+                      referrerPolicy="no-referrer"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#231811]/80 via-[#231811]/20 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                      <p className="text-[11px] text-white/80 line-clamp-1">
+                        {spotlightProducts[0].sellerName}
+                      </p>
+                      <div className="mt-0.5 flex items-baseline justify-between gap-2">
+                        <p className="font-serif text-base font-semibold leading-snug line-clamp-1">
+                          {spotlightProducts[0].name}
+                        </p>
+                        <span className="font-mono text-xs font-semibold tabular-nums shrink-0">
+                          {formatINR(spotlightProducts[0].price)}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+
+                  {spotlightProducts.length > 1 && (
+                    <div className="col-span-5 flex flex-col gap-3.5">
+                      {spotlightProducts.slice(1, 3).map((item) => (
+                        <Link
+                          key={item.id}
+                          to={`/products/${item.slug}`}
+                          className="group relative flex-1 min-h-[138px] overflow-hidden rounded-xl border border-white/80 bg-white shadow-sm"
+                        >
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#231811]/80 via-[#231811]/15 to-transparent" />
+                          <div className="absolute inset-x-0 bottom-0 p-3 text-white">
+                            <p className="text-xs font-semibold leading-snug line-clamp-1">
+                              {item.name}
+                            </p>
+                            <p className="font-mono text-[11px] text-white/85 tabular-nums">
+                              {formatINR(item.price)}
+                            </p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* 4-Pillar Trust Bar */}
-          <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-4 rounded-xl bg-white/90 border border-[#EAE1D5] px-5 py-4">
-            <div className="flex items-center gap-3">
+          {/* Clean Minimal 4-Pillar Trust Strip */}
+          <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 lg:divide-x divide-[#EAE1D5] rounded-xl bg-white border border-[#EAE1D5]">
+            <div className="flex items-center gap-3 px-5 py-4">
               <Truck className="h-5 w-5 text-[#8B4B28] shrink-0" />
               <div>
                 <p className="text-xs sm:text-sm font-semibold text-[#2C2018]">
                   Free Shipping
                 </p>
-                <p className="text-xs text-[#6E5E52]">On Orders Above ₹999</p>
+                <p className="text-xs text-[#6E5E52]">On orders above ₹999</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 px-5 py-4">
               <ShieldCheck className="h-5 w-5 text-[#8B4B28] shrink-0" />
               <div>
                 <p className="text-xs sm:text-sm font-semibold text-[#2C2018]">
                   Secure Payments
                 </p>
-                <p className="text-xs text-[#6E5E52]">Razorpay &amp; COD Available</p>
+                <p className="text-xs text-[#6E5E52]">Razorpay &amp; Cash on Delivery</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 px-5 py-4">
               <Users className="h-5 w-5 text-[#8B4B28] shrink-0" />
               <div>
                 <p className="text-xs sm:text-sm font-semibold text-[#2C2018]">
-                  Support Artisans
+                  Direct From Artisans
                 </p>
-                <p className="text-xs text-[#6E5E52]">Direct From Indian Studios</p>
+                <p className="text-xs text-[#6E5E52]">Admin-verified Indian studios</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 px-5 py-4">
               <RefreshCw className="h-5 w-5 text-[#8B4B28] shrink-0" />
               <div>
                 <p className="text-xs sm:text-sm font-semibold text-[#2C2018]">
-                  Easy Returns
+                  7-Day Returns
                 </p>
-                <p className="text-xs text-[#6E5E52]">7-Day Hassle Free</p>
+                <p className="text-xs text-[#6E5E52]">Protected post-delivery window</p>
               </div>
             </div>
           </div>
@@ -695,68 +790,177 @@ export default function StorefrontPage() {
           )}
         </section>
 
-        {/* Artisan Community Spotlight */}
+        {/* Live Verified Artisan Studios + How Craftify Works */}
         <section
           id="our-artists"
-          className="border-t border-[#EAE1D5] bg-[#F3ECE2]/60 py-14"
+          className="border-t border-[#EAE1D5] bg-[#F5EFE6]/70 py-14"
         >
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            <div className="lg:col-span-7 space-y-4">
-              <p className="text-xs font-semibold tracking-wide text-[#8B4B28]">
-                Direct-to-Artisan Marketplace
-              </p>
-              <h2 className="font-serif text-3xl font-bold text-[#2C2018]">
-                Crafted in small batches across Jaipur, Madhubani, Bagru &amp; Bengaluru
-              </h2>
-              <p className="text-sm leading-relaxed text-[#524338] max-w-2xl">
-                Every seller on Craftify is verified by our admin team before their
-                shop goes live. When you checkout crafts from multiple studios in a
-                single order, each artisan receives their own fulfilment suborder and
-                ships straight from their workshop.
-              </p>
-              <div className="pt-2 flex flex-wrap gap-3">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
+            {/* Part 1: Live Verified Artisan Studios from PostgreSQL */}
+            <div>
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+                <div>
+                  <p className="text-xs font-semibold tracking-wide text-[#8B4B28]">
+                    Meet the Makers
+                  </p>
+                  <h2 className="mt-1 font-serif text-2xl sm:text-3xl font-bold text-[#2C2018]">
+                    Verified Artisan Studios
+                  </h2>
+                  <p className="mt-1 text-sm text-[#5E4E43]">
+                    Independent workshops verified on Craftify — browse directly by studio.
+                  </p>
+                </div>
                 <Link
                   to="/shops"
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#8B4B28] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#733C1E] transition-colors"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#8B4B28] hover:text-[#733C1E] transition-colors whitespace-nowrap"
                 >
-                  Explore Artisan Studios
+                  <span>View All Studios</span>
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
+
+              {shopsLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {[1, 2, 3].map((sk) => (
+                    <div
+                      key={sk}
+                      className="h-44 rounded-xl bg-white border border-[#EAE1D5] p-5 animate-pulse"
+                    >
+                      <div className="h-4 w-1/2 rounded bg-[#EFE6DA]" />
+                      <div className="mt-3 h-3 w-1/3 rounded bg-[#F4ECE2]" />
+                      <div className="mt-5 h-3 w-full rounded bg-[#F4ECE2]" />
+                    </div>
+                  ))}
+                </div>
+              ) : shops.length === 0 ? (
+                <div className="rounded-xl bg-white border border-[#EAE1D5] px-6 py-8 text-center">
+                  <Store className="mx-auto h-7 w-7 text-[#C5B39F]" />
+                  <p className="mt-2.5 text-sm font-semibold text-[#2C2018]">
+                    Verified artisan studios will appear here as workshops join Craftify
+                  </p>
+                  <p className="mt-1 text-xs text-[#6E5E52] max-w-md mx-auto">
+                    Every studio undergoes KYC verification and approval before their storefront
+                    goes live.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {shops.slice(0, 6).map((shop) => {
+                    const location = [shop.city, shop.state].filter(Boolean).join(', ');
+                    const ratingNum = Number(shop.rating_avg || 0);
+                    return (
+                      <Link
+                        key={shop.id}
+                        to={`/shops/${shop.slug}`}
+                        className="group flex flex-col justify-between rounded-xl bg-white border border-[#EAE1D5] p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#C9B7A2] hover:shadow-sm"
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#FAF6F0] border border-[#EAE1D5] text-[#8B4B28] shrink-0">
+                              <Store className="h-4 w-4" />
+                            </div>
+                            <span className="font-mono text-xs text-[#6E5E52] tabular-nums">
+                              {shop.approved_product_count ?? 0} craft
+                              {(shop.approved_product_count ?? 0) === 1 ? '' : 's'}
+                            </span>
+                          </div>
+
+                          <h3 className="mt-3.5 font-serif text-lg font-bold text-[#2C2018] group-hover:text-[#8B4B28] transition-colors line-clamp-1">
+                            {shop.shop_name}
+                          </h3>
+
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#6E5E52]">
+                            {location && (
+                              <span className="inline-flex items-center gap-1">
+                                <MapPin className="h-3 w-3 text-[#8B4B28]" />
+                                {location}
+                              </span>
+                            )}
+                            {location && shop.primary_category && (
+                              <span aria-hidden="true">·</span>
+                            )}
+                            {shop.primary_category && (
+                              <span>{shop.primary_category}</span>
+                            )}
+                          </div>
+
+                          {shop.tagline && (
+                            <p className="mt-2.5 text-xs leading-relaxed text-[#524338] line-clamp-2">
+                              {shop.tagline}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-[#F2ECE3] flex items-center justify-between text-xs">
+                          <span className="inline-flex items-center gap-1 text-[#524338] tabular-nums">
+                            {ratingNum > 0 ? (
+                              <>
+                                <Star className="h-3.5 w-3.5 fill-[#D9822B] text-[#D9822B]" />
+                                <span className="font-semibold text-[#2C2018]">
+                                  {ratingNum.toFixed(1)}
+                                </span>
+                                <span className="text-[#7A6A5E]">Studio Rating</span>
+                              </>
+                            ) : (
+                              <span className="text-[#7A6A5E]">Verified Studio</span>
+                            )}
+                          </span>
+                          <span className="inline-flex items-center gap-1 font-semibold text-[#8B4B28] group-hover:underline underline-offset-2">
+                            Visit Studio
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            <div className="lg:col-span-5 grid grid-cols-2 gap-4">
-              <div className="rounded-xl bg-white border border-[#EAE1D5] p-5">
-                <p className="font-mono text-2xl font-bold text-[#2C2018] tabular-nums">
-                  100%
-                </p>
-                <p className="mt-1 text-xs text-[#6E5E52]">
-                  Admin-moderated handmade products before listing
-                </p>
-              </div>
-              <div className="rounded-xl bg-white border border-[#EAE1D5] p-5">
-                <p className="font-mono text-2xl font-bold text-[#2C2018] tabular-nums">
-                  {categories.length}
-                </p>
-                <p className="mt-1 text-xs text-[#6E5E52]">
-                  Active handmade craft categories live on Craftify
-                </p>
-              </div>
-              <div className="rounded-xl bg-white border border-[#EAE1D5] p-5">
-                <p className="font-mono text-2xl font-bold text-[#2C2018] tabular-nums">
-                  ₹999+
-                </p>
-                <p className="mt-1 text-xs text-[#6E5E52]">
-                  Complimentary shipping threshold across India
-                </p>
-              </div>
-              <div className="rounded-xl bg-white border border-[#EAE1D5] p-5">
-                <p className="font-mono text-2xl font-bold text-[#2C2018] tabular-nums">
-                  7 Days
-                </p>
-                <p className="mt-1 text-xs text-[#6E5E52]">
-                  Buyer return window with transparent settlement holds
-                </p>
+            {/* Part 2: How Craftify Works (Honest 3-Step Marketplace Flow) */}
+            <div className="pt-10 border-t border-[#E4D7C7]">
+              <h3 className="font-serif text-xl font-bold text-[#2C2018] mb-6">
+                How Craftify Works
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                  <p className="font-mono text-xs font-semibold text-[#8B4B28] tabular-nums">
+                    01. Curated &amp; Verified
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-[#2C2018]">
+                    Admin-reviewed studios and listings
+                  </p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#5E4E43]">
+                    Every seller completes identity verification and every handmade piece is
+                    moderated before appearing on the storefront.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-mono text-xs font-semibold text-[#8B4B28] tabular-nums">
+                    02. Direct Workshop Fulfilment
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-[#2C2018]">
+                    One checkout across multiple studios
+                  </p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#5E4E43]">
+                    Order crafts from different artisans in a single cart — each studio gets
+                    its own suborder and dispatches directly with courier tracking.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-mono text-xs font-semibold text-[#8B4B28] tabular-nums">
+                    03. Protected Delivery &amp; Reviews
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-[#2C2018]">
+                    Razorpay, COD &amp; 7-day return window
+                  </p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-[#5E4E43]">
+                    Checkout securely with Razorpay or Cash on Delivery up to ₹5,000, backed
+                    by a 7-day return window and verified buyer reviews.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
