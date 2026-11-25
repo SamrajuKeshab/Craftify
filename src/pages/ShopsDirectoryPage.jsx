@@ -84,8 +84,8 @@ export default function ShopsDirectoryPage() {
                 ? 'Try clearing your search to explore all verified Craftify studios.'
                 : 'Approved Indian craft studios appear here automatically once verified by Craftify Admin.'}
             </p>
-            <div className="mt-5 flex justify-center gap-3">
-              {search && (
+            {search && (
+              <div className="mt-5 flex justify-center gap-3">
                 <button
                   type="button"
                   onClick={() => setSearch('')}
@@ -93,14 +93,8 @@ export default function ShopsDirectoryPage() {
                 >
                   Clear Search
                 </button>
-              )}
-              <Link
-                to="/become-seller"
-                className="rounded-lg border border-[#D8CBB9] bg-white px-4 py-2 text-xs font-semibold text-[#2C2018] hover:border-[#8B4B28]"
-              >
-                Apply to Open Your Studio
-              </Link>
-            </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

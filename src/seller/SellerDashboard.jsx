@@ -360,8 +360,6 @@ export default function SellerDashboard() {
         </div>
       }
     >
-      <EmailVerificationBanner />
-
       {shop?.is_suspended && (
         <div
           role="alert"
@@ -874,7 +872,12 @@ export default function SellerDashboard() {
         />
       )}
 
-      {activeTab === 'settings' && <AccountSecurityPanel />}
+      {activeTab === 'settings' && (
+        <>
+          <EmailVerificationBanner />
+          <AccountSecurityPanel />
+        </>
+      )}
 
       {/* Live Week 11 Seller Verified Reviews & Studio Replies */}
       {activeTab === 'reviews' && (

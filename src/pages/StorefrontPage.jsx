@@ -538,14 +538,6 @@ export default function StorefrontPage() {
                     Add Your First Product
                   </Link>
                 )}
-                {(!user || user.role === 'BUYER') && (
-                  <Link
-                    to="/become-seller"
-                    className="rounded-lg border border-[#D8CBB9] bg-white px-4 py-2 text-xs font-semibold text-[#2C2018] hover:border-[#8B4B28]"
-                  >
-                    Become a Craftify Seller
-                  </Link>
-                )}
               </div>
             </div>
           ) : (
@@ -730,12 +722,6 @@ export default function StorefrontPage() {
                   Explore Artisan Studios
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link
-                  to="/become-seller"
-                  className="inline-flex items-center gap-2 rounded-lg border border-[#D8CBB9] bg-white px-5 py-2.5 text-sm font-semibold text-[#2C2018] hover:border-[#8B4B28] transition-colors"
-                >
-                  Apply to Open Your Shop
-                </Link>
               </div>
             </div>
 
@@ -793,12 +779,6 @@ export default function StorefrontPage() {
               className="hover:text-[#8B4B28] underline-offset-4 hover:underline"
             >
               Artisan Studios
-            </Link>
-            <Link
-              to="/become-seller"
-              className="hover:text-[#8B4B28] underline-offset-4 hover:underline"
-            >
-              Become a Seller
             </Link>
             <Link
               to="/cart"

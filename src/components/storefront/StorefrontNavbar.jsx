@@ -64,12 +64,14 @@ export default function StorefrontNavbar({ searchQuery, onSearchChange }) {
           >
             Our Artists
           </Link>
-          <Link
-            to="/become-seller"
-            className="hover:text-[#8B4B28] transition-colors whitespace-nowrap shrink-0"
-          >
-            Sell on Craftify
-          </Link>
+          {(!user || user.role === 'BUYER') && (
+            <Link
+              to="/become-seller"
+              className="hover:text-[#8B4B28] transition-colors whitespace-nowrap shrink-0"
+            >
+              Sell on Craftify
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-3 sm:gap-4 flex-1 lg:flex-initial justify-end">

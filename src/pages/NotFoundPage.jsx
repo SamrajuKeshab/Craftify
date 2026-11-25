@@ -1,4 +1,4 @@
-import { ArrowLeft, Compass, ShoppingBag, Store } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Store } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import StorefrontNavbar from '../components/storefront/StorefrontNavbar';
 
@@ -41,10 +41,6 @@ export default function NotFoundPage() {
             <Link to="/cart" className="inline-flex items-center gap-1.5 hover:text-[#8B4B28]">
               <ShoppingBag className="w-3.5 h-3.5" />
               View Cart
-            </Link>
-            <Link to="/become-seller" className="inline-flex items-center gap-1.5 hover:text-[#8B4B28]">
-              <Compass className="w-3.5 h-3.5" />
-              Sell Your Crafts
             </Link>
           </div>
         </div>
