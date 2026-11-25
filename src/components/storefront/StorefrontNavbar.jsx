@@ -35,39 +35,39 @@ export default function StorefrontNavbar({ searchQuery, onSearchChange }) {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-[#FAF6F0]/95 backdrop-blur-sm border-b border-[#E8DFD3]">
+    <header className="sticky top-0 z-40 bg-[#171311]/95 backdrop-blur-sm border-b border-[#2C2420] text-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 sm:px-6 lg:px-8 h-16">
-        <CraftifyLogo variant="light" to="/" />
+        <CraftifyLogo variant="dark" to="/" />
 
-        <nav className="hidden lg:flex items-center gap-7 text-sm font-medium text-[#524338]">
+        <nav className="hidden lg:flex items-center gap-7 text-sm font-medium text-[#EAE2D9] tracking-[0.01em]">
           <Link
             to="/"
-            className="hover:text-[#8B4B28] transition-colors whitespace-nowrap shrink-0"
+            className="hover:text-[#E2A478] transition-colors whitespace-nowrap shrink-0"
           >
             Home
           </Link>
           <a
             href="/#featured-products"
-            className="hover:text-[#8B4B28] transition-colors whitespace-nowrap shrink-0"
+            className="hover:text-[#E2A478] transition-colors whitespace-nowrap shrink-0"
           >
             Shop
           </a>
           <a
             href="/#popular-categories"
-            className="hover:text-[#8B4B28] transition-colors whitespace-nowrap shrink-0"
+            className="hover:text-[#E2A478] transition-colors whitespace-nowrap shrink-0"
           >
             Categories
           </a>
           <Link
             to="/shops"
-            className="hover:text-[#8B4B28] transition-colors whitespace-nowrap shrink-0"
+            className="hover:text-[#E2A478] transition-colors whitespace-nowrap shrink-0"
           >
             Our Artists
           </Link>
           {(!user || user.role === 'BUYER') && (
             <Link
               to="/become-seller"
-              className="hover:text-[#8B4B28] transition-colors whitespace-nowrap shrink-0"
+              className="hover:text-[#E2A478] transition-colors whitespace-nowrap shrink-0"
             >
               Sell on Craftify
             </Link>
@@ -85,12 +85,12 @@ export default function StorefrontNavbar({ searchQuery, onSearchChange }) {
               onChange={(e) => handleInputChange(e.target.value)}
               placeholder="Search for art & craft products..."
               aria-label="Search handmade products"
-              className="w-full rounded-full bg-white border border-[#E2D8CB] pl-4 pr-9 py-1.5 text-sm text-[#2C2018] placeholder:text-[#8C7B6E] focus:outline-none focus:border-[#8B4B28] transition-colors"
+              className="w-full rounded-full bg-[#241E1B] border border-[#3B312B] pl-4 pr-9 py-1.5 text-sm text-white placeholder:text-[#A39589] focus:outline-none focus:border-[#D48A5A] transition-colors"
             />
             <button
               type="submit"
               aria-label="Search"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7A6A5E] hover:text-[#8B4B28]"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#B8AAA0] hover:text-[#E2A478] transition-colors"
             >
               <Search className="h-4 w-4" />
             </button>
@@ -100,11 +100,11 @@ export default function StorefrontNavbar({ searchQuery, onSearchChange }) {
             to={user ? '/buyer/dashboard?tab=wishlist' : '/login'}
             aria-label="Saved Wishlist"
             title="Wishlist"
-            className="relative p-2 text-[#4A3B31] hover:text-[#8B4B28] transition-colors shrink-0"
+            className="relative p-2 text-[#EAE2D9] hover:text-[#E2A478] transition-colors shrink-0"
           >
             <Heart className="h-5 w-5" />
             {wishlistIds.length > 0 && (
-              <span className="absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#8B4B28] px-1 text-[10px] font-semibold text-white tabular-nums">
+              <span className="absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C96E3B] px-1 text-[10px] font-semibold text-white tabular-nums">
                 {wishlistIds.length}
               </span>
             )}
@@ -114,11 +114,11 @@ export default function StorefrontNavbar({ searchQuery, onSearchChange }) {
             to="/cart"
             aria-label="Shopping Cart"
             title="Your Cart"
-            className="relative p-2 text-[#4A3B31] hover:text-[#8B4B28] transition-colors shrink-0"
+            className="relative p-2 text-[#EAE2D9] hover:text-[#E2A478] transition-colors shrink-0"
           >
             <ShoppingBag className="h-5 w-5" />
             {itemCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#8B4B28] px-1 text-[10px] font-semibold text-white tabular-nums">
+              <span className="absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C96E3B] px-1 text-[10px] font-semibold text-white tabular-nums">
                 {itemCount}
               </span>
             )}
@@ -127,7 +127,7 @@ export default function StorefrontNavbar({ searchQuery, onSearchChange }) {
           <Link
             to={user ? getDashboardUrl() : '/login'}
             aria-label={user ? 'Open Dashboard' : 'Sign In'}
-            className="inline-flex items-center gap-2 rounded-full border border-[#E2D8CB] bg-white px-3 py-1.5 text-xs font-semibold text-[#2C2018] hover:border-[#8B4B28] hover:text-[#8B4B28] transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-2 rounded-full border border-[#3D332D] bg-[#241E1B] px-3 py-1.5 text-xs font-semibold text-[#F7F1EB] hover:border-[#D48A5A] hover:text-[#E2A478] transition-colors whitespace-nowrap shrink-0"
           >
             <User className="h-4 w-4" />
             <span className="hidden md:inline">

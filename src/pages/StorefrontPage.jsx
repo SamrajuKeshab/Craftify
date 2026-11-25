@@ -928,149 +928,58 @@ export default function StorefrontPage() {
         </section>
       </main>
 
-      {/* 3-Column Editorial Footer */}
-      <footer className="border-t border-[#E6DACB] bg-[#FAF6F0]">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
-            {/* Column 1: Brand & Promise */}
-            <div className="md:col-span-5">
-              <Link
-                to="/"
-                className="font-serif text-xl font-bold tracking-tight text-[#2C2018]"
-              >
-                Craftify
-              </Link>
-              <p className="mt-3 text-sm leading-relaxed text-[#5E4E43] max-w-sm">
-                A curated Indian marketplace connecting art lovers directly with verified
-                independent craft studios — handcrafted in small batches and shipped straight
-                from the workshop.
-              </p>
-              <p className="mt-4 font-mono text-[11px] text-[#7A6A5E] tabular-nums">
-                Free shipping ₹999+ · Razorpay &amp; COD up to ₹5,000 · 7-day returns
-              </p>
-            </div>
-
-            {/* Column 2: Shop & Explore */}
-            <div className="md:col-span-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8B4B28]">
-                Shop &amp; Explore
-              </h3>
-              <ul className="mt-4 space-y-2.5 text-sm text-[#4F4035]">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => applyQuickCollection('all')}
-                    className="hover:text-[#8B4B28] underline-offset-4 hover:underline transition-colors"
-                  >
-                    All Handmade Crafts
-                  </button>
-                </li>
-                <li>
-                  <Link
-                    to="/shops"
-                    className="hover:text-[#8B4B28] underline-offset-4 hover:underline transition-colors"
-                  >
-                    Artisan Studios
-                  </Link>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => applyQuickCollection('under-999')}
-                    className="hover:text-[#8B4B28] underline-offset-4 hover:underline transition-colors"
-                  >
-                    Gifts Under ₹999
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => applyQuickCollection('customizable')}
-                    className="hover:text-[#8B4B28] underline-offset-4 hover:underline transition-colors"
-                  >
-                    Personalized &amp; Custom
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => applyQuickCollection('one-of-a-kind')}
-                    className="hover:text-[#8B4B28] underline-offset-4 hover:underline transition-colors"
-                  >
-                    One-of-a-Kind Pieces
-                  </button>
-                </li>
-              </ul>
-            </div>
-
-            {/* Column 3: Your Account */}
-            <div className="md:col-span-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8B4B28]">
-                Your Account
-              </h3>
-              <ul className="mt-4 space-y-2.5 text-sm text-[#4F4035]">
-                <li>
-                  <Link
-                    to="/cart"
-                    className="hover:text-[#8B4B28] underline-offset-4 hover:underline transition-colors"
-                  >
-                    Your Cart
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/buyer/dashboard?tab=wishlist"
-                    className="hover:text-[#8B4B28] underline-offset-4 hover:underline transition-colors"
-                  >
-                    Saved Wishlist
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/buyer/dashboard"
-                    className="hover:text-[#8B4B28] underline-offset-4 hover:underline transition-colors"
-                  >
-                    My Orders
-                  </Link>
-                </li>
-                {user ? (
-                  <li>
-                    <Link
-                      to={getDashboardUrl()}
-                      className="font-semibold text-[#8B4B28] underline-offset-4 hover:underline transition-colors"
-                    >
-                      Open Dashboard
-                    </Link>
-                  </li>
-                ) : (
-                  <>
-                    <li>
-                      <Link
-                        to="/login"
-                        className="hover:text-[#8B4B28] underline-offset-4 hover:underline transition-colors"
-                      >
-                        Login
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/sign-up"
-                        className="hover:text-[#8B4B28] underline-offset-4 hover:underline transition-colors"
-                      >
-                        Create Account
-                      </Link>
-                    </li>
-                  </>
-                )}
-              </ul>
-            </div>
+      {/* Single-Line Black Editorial Footer */}
+      <footer className="bg-[#0F0D0C] text-white border-t border-[#26201D]">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2.5 gap-y-1 text-xs text-white/85">
+            <Link
+              to="/"
+              className="font-serif text-base font-bold text-white tracking-tight hover:text-[#E2A478] transition-colors"
+            >
+              Craftify
+            </Link>
+            <span aria-hidden="true" className="text-white/40">
+              ·
+            </span>
+            <span>© 2026 Craftify India · Handmade Art &amp; Craft Marketplace (INR ₹)</span>
           </div>
 
-          <div className="mt-10 pt-6 border-t border-[#EAE1D5] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-[#6E5E52]">
-            <p>© 2026 Craftify India · Handmade Art &amp; Craft Marketplace</p>
-            <p className="font-mono tabular-nums">
-              Prices in INR (₹) · Direct Workshop Fulfilment
-            </p>
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-6 gap-y-2 text-xs font-medium text-white/90">
+            <Link
+              to="/shops"
+              className="hover:text-[#E2A478] underline-offset-4 hover:underline transition-colors whitespace-nowrap"
+            >
+              Artisan Studios
+            </Link>
+            <Link
+              to="/cart"
+              className="hover:text-[#E2A478] underline-offset-4 hover:underline transition-colors whitespace-nowrap"
+            >
+              Your Cart
+            </Link>
+            {user ? (
+              <Link
+                to={getDashboardUrl()}
+                className="font-semibold text-[#E2A478] hover:text-white underline-offset-4 hover:underline transition-colors whitespace-nowrap"
+              >
+                Open Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="hover:text-[#E2A478] underline-offset-4 hover:underline transition-colors whitespace-nowrap"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/sign-up"
+                  className="hover:text-[#E2A478] underline-offset-4 hover:underline transition-colors whitespace-nowrap"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </footer>
